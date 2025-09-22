@@ -203,6 +203,7 @@ $clsLeft = $parts[0] ?? '';    // e.g. "BACHELOR OF COMPUTER APPLICATION"
 $termRight = $parts[1] ?? '';  // e.g. "BCA Part 1"
 
 $cls_id = 0;
+$cls_nm = '';
 $clsCode = "000";
 $pattern = "semester";
 $total_terms = 0;
@@ -210,7 +211,7 @@ $duration_years = 0;
 
 // 🔍 Find class info
 if ($clsLeft) {
-    $clsRes = $conn->prepare("SELECT cls_id, cls_code, pattern, total_terms, duration_years 
+    $clsRes = $conn->prepare("SELECT cls_id, cls_ful_nm, cls_code, pattern, total_terms, duration_years 
                               FROM classes 
                               WHERE cls_ful_nm = ?");
     $clsRes->bind_param("s", $clsLeft);
@@ -220,6 +221,7 @@ if ($clsLeft) {
 
     if ($clsData) {
         $cls_id = intval($clsData['cls_id']);
+        $cls_nm = intval($clsData['cls_ful_nm']);
         $clsCode = $clsData['cls_code'] ?? "000";
         $pattern = $clsData['pattern'] ?? "semester";
         $total_terms = intval($clsData['total_terms']);
@@ -278,6 +280,31 @@ if (!$prnRow || empty($prnRow['prn_no'])) {
     $prn = $prnRow['prn_no'];
 }
 
+// 🔍 Get student type
+$stu_type = $_POST['r_stu_type'] ?? 'paying';
+
+// 🔍 Get term_id
+$term_id = 0;
+$feeQ = $conn->prepare("SELECT term_id FROM feecls WHERE cls_ful_nm=? AND term_title=? LIMIT 1");
+$feeQ->bind_param("ss", $clsLeft, $termRight);
+$feeQ->execute();
+$feeRes = $feeQ->get_result()->fetch_assoc();
+$feeQ->close();
+if ($feeRes) $term_id = intval($feeRes['term_id']);
+
+// 🔍 Find total fee for this student type
+$tot_fee = 0;
+if ($term_id > 0) {
+    $fQ = $conn->prepare("SELECT amount FROM feestru 
+                          WHERE term_id=? AND type=? AND fl_nm='Total' LIMIT 1");
+    $fQ->bind_param("is", $term_id, $stu_type);
+    $fQ->execute();
+    $fR = $fQ->get_result()->fetch_assoc();
+    $fQ->close();
+    if ($fR) $tot_fee = floatval($fR['amount']);
+}
+$pen_fee = $tot_fee;
+
 // ------------------------
 // Insert student_subjects if not exists
 // ------------------------
@@ -310,7 +337,12 @@ if ($cls_id > 0) {
 
     // Fill subjects for current sem
     $selectedSubjects = array_merge($compSel, $optSel);
-    $subjData["sem{$current_sem}"]["regular"] = $selectedSubjects;
+
+    if ($pattern === "semester") {
+        $subjData["sem{$current_sem}"]["regular"] = $selectedSubjects;
+    } else {
+        $subjData["year{$current_sem}"]["regular"] = $selectedSubjects;
+    }
 
     $jsonData = json_encode($subjData, JSON_UNESCAPED_UNICODE);
 
@@ -322,10 +354,10 @@ if ($cls_id > 0) {
 
     if ($chkRes->num_rows === 0) {
         $ins = $conn->prepare("INSERT INTO student_subjects 
-            (stu_id, cls_id, subj_data, current_sem, status) 
-            VALUES (?, ?, ?, ?, 'in_progress')");
-        $ins->bind_param("sisi", $prn, $cls_id, $jsonData, $current_sem);
-        $ins->execute();
+            (stu_id, cls_id, cls_ful_nm, subj_data, current_sem, tot_fee, pen_fee, stu_type, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'in_progress')");
+        $ins->bind_param("sissidds", $prn, $cls_id, $clsLeft, $jsonData, $current_sem, $tot_fee, $pen_fee, $stu_type);
+        $ins->execute() or die("Insert student_subjects failed: " . $ins->error);
         $ins->close();
     }
     $chk->close();
