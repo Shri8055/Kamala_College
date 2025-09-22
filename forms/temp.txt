@@ -1,0 +1,243 @@
+Heres the working of this software till now : register.php has the the 85+ inputs that takes the student basic details 
+there is a class dropdown that comes from master classes names comes from class master , in class master while creating the class
+we take name, total intake capacity, total divisions, pattern : sem / yearly, fee pattern : sem / yearly, Duration in years 
+According to this we get idea that class has sem pattern / yearly pattern, we have created the class be for the odd sem we should 
+give titles because this titles are then called in fee structure , also while showing the class Eg : BCA (class has created, 
+but each academic year is not created to show like BCA PART 1, BCA PART 2, BCA PART 3 like this we do all in class master)
+Now we have created the class so we should declare the subjects too, so we have dropdown of classes here we call the pattern 
+and based on this we decide its sem / year and subejcts entry, subejcts and classes master ends here,
+Now we should also declare fees to that created classes so we call the class name and class title (odd sems names like BCA PART 1)
+we can set fees to this classes, fee master also ended here, now again in register.php based on what student has selected we show 
+subejcts and when student is registered then we store this selected subjects in 
+
+
+
+
+save_subjects.php
+<?php
+// save_subjects.php
+// Saves/updates subjects for a class/semester and updates subject_summary.
+// Compatible with your addsub.php form (arrays: sub_id[], sub_code[], sub_sh_nm[], sub_fl_nm[], sub_typ[],
+ // credit[], int_min_mrk[], int_max_mrk[], ext_min_mrk[], ext_max_mrk[], total[], type[], sel_comp_sub, sel_op_sub, current_sem, acad_yr)
+
+include '../includes/db.php';
+
+function esc($conn, $v) {
+    return $conn->real_escape_string($v);
+}
+
+// --- basic inputs & validation ---
+if (!isset($_POST['d_cls']) || empty($_POST['d_cls'])) {
+    die("Error: Class is not selected.");
+}
+$class_id = (int) $_POST['d_cls'];
+
+// Determine semester: prefer edit_sem (GET) else hidden current_sem (POST)
+$edit_sem = isset($_GET['edit_sem']) ? (int) $_GET['edit_sem'] : 0;
+$current_sem = $edit_sem ?: (int)($_POST['current_sem'] ?? 1);
+
+// acad year from form
+$acad_yr = $_POST['acad_yr'] ?? '';
+
+// fetch class info (to set int_cap and class_name if needed)
+$cls_name = '';
+$int_cap_cls = 0;
+$stmtC = $conn->prepare("SELECT tot_cap_cls, cls_ful_nm FROM classes WHERE cls_id = ?");
+$stmtC->bind_param("i", $class_id);
+$stmtC->execute();
+$stmtC->bind_result($int_cap_cls, $cls_name);
+$stmtC->fetch();
+$stmtC->close();
+$int_cap = (int)$int_cap_cls;
+
+// --- gather posted arrays (these come from addsub.php) ---
+$sub_codes   = $_POST['sub_code']       ?? [];
+$sub_sh_nms  = $_POST['sub_sh_nm']      ?? [];
+$sub_fl_nms  = $_POST['sub_fl_nm']      ?? [];
+$sub_typs    = $_POST['sub_typ']        ?? [];
+$credits     = $_POST['credit']         ?? [];
+$int_mins    = $_POST['int_min_mrk']    ?? [];
+$int_maxs    = $_POST['int_max_mrk']    ?? [];
+$ext_mins    = $_POST['ext_min_mrk']    ?? [];
+$ext_maxs    = $_POST['ext_max_mrk']    ?? [];
+$totals      = $_POST['tot_sub']          ?? [];
+$types       = $_POST['type']           ?? []; // 'compulsory' or 'optional'
+$sub_ids_post= $_POST['sub_id']         ?? []; // may be not present for some rows
+
+$sel_comp_sub = (int)($_POST['sel_comp_sub'] ?? 0);
+$sel_op_sub   = (int)($_POST['sel_op_sub'] ?? 0);
+
+// count rows by sub_code array (we'll iterate by this)
+$totalRows = count($sub_codes);
+if ($totalRows === 0) {
+    die("Error: No subjects submitted.");
+}
+
+// --- fetch existing subjects for this class+sem to allow matching by sub_code if sub_id missing ---
+$existing_map = []; // map uppercase(sub_code) => sub_id
+$existing_ids = []; // list of existing sub_ids
+$stmtE = $conn->prepare("SELECT sub_id, sub_code FROM subjects WHERE class_id = ? AND sem = ?");
+$stmtE->bind_param("ii", $class_id, $current_sem);
+$stmtE->execute();
+$resE = $stmtE->get_result();
+while ($r = $resE->fetch_assoc()) {
+    $existing_ids[] = (int)$r['sub_id'];
+    $k = strtoupper(trim($r['sub_code'] ?? ''));
+    if ($k !== '') $existing_map[$k] = (int)$r['sub_id'];
+}
+$stmtE->close();
+
+// We'll collect processed IDs (existing updated + newly inserted)
+$processedIds = [];
+
+// Counters for summary
+$comp_count = 0;
+$opt_count  = 0;
+
+// Process each submitted row (index-based)
+for ($i = 0; $i < $totalRows; $i++) {
+    // normalize input values
+    $code    = trim($sub_codes[$i] ?? '');
+    $sh      = trim($sub_sh_nms[$i] ?? '');
+    $fl      = trim($sub_fl_nms[$i] ?? '');
+    $typ     = trim($sub_typs[$i] ?? '');
+    $credit  = (int)($credits[$i] ?? 0);
+    $intMin  = (int)($int_mins[$i] ?? 0);
+    $intMax  = (int)($int_maxs[$i] ?? 0);
+    $extMin  = (int)($ext_mins[$i] ?? 0);
+    $extMax  = (int)($ext_maxs[$i] ?? 0);
+    if ($intMax > 0 || $extMax > 0) {
+        $total = $intMax + $extMax;
+    } else {
+        $total = !empty($totals[$i]) ? (int)$totals[$i] : 0;
+    }
+    $rowType = trim($types[$i] ?? 'compulsory'); // fallback
+
+    // skip completely empty rows (no code and no full name)
+    if ($code === '' && $fl === '') continue;
+
+    // count for summary only for non-empty rows
+    if ($rowType === 'compulsory') $comp_count++; else $opt_count++;
+
+    // determine sub_id: prefer the posted sub_id (if any), else try to match by sub_code in DB
+    $posted_sid = null;
+    if (isset($sub_ids_post[$i]) && $sub_ids_post[$i] !== '') {
+        $posted_sid = (int) $sub_ids_post[$i];
+    }
+    $use_sub_id = null;
+    if (!empty($posted_sid)) {
+        $use_sub_id = $posted_sid;
+    } else {
+        $lookup = strtoupper($code);
+        if ($lookup !== '' && isset($existing_map[$lookup])) {
+            $use_sub_id = (int)$existing_map[$lookup];
+        }
+    }
+
+    // escape strings for safe SQL building (we use real_escape_string)
+    $code_e = esc($conn, $code);
+    $sh_e   = esc($conn, $sh);
+    $fl_e   = esc($conn, $fl);
+    $typ_e  = esc($conn, $typ);
+    $type_e = esc($conn, $rowType);
+    $acad_e = esc($conn, $acad_yr);
+    $clsname_e = esc($conn, $cls_name);
+
+    if (!empty($use_sub_id)) {
+        // UPDATE existing subject
+        $sid = (int)$use_sub_id;
+        $sql = "UPDATE subjects SET
+                    sub_code = '{$code_e}',
+                    sub_sh_nm = '{$sh_e}',
+                    sub_fl_nm = '{$fl_e}',
+                    sub_typ = '{$typ_e}',
+                    credit = {$credit},
+                    int_min_mrk = {$intMin},
+                    int_max_mrk = {$intMax},
+                    ext_min_mrk = {$extMin},
+                    ext_max_mrk = {$extMax},
+                    total = {$total},
+                    type = '{$type_e}',
+                    acad_yr = '{$acad_e}'
+                WHERE sub_id = {$sid} LIMIT 1";
+        $conn->query($sql);
+        $processedIds[] = $sid;
+    } else {
+        // INSERT new subject (set class_id & sem & acad_yr & int_cap & class_name)
+        $sql = "INSERT INTO subjects
+            (class_id, sem, acad_yr, int_cap, class_name, sub_code, sub_sh_nm, sub_fl_nm, sub_typ, credit, int_min_mrk, int_max_mrk, ext_min_mrk, ext_max_mrk, total, type)
+            VALUES
+            ({$class_id}, {$current_sem}, '{$acad_e}', {$int_cap}, '{$clsname_e}', '{$code_e}', '{$sh_e}', '{$fl_e}', '{$typ_e}', {$credit}, {$intMin}, {$intMax}, {$extMin}, {$extMax}, {$total}, '{$type_e}')";
+
+        $conn->query($sql);
+        $newId = (int)$conn->insert_id;
+        if ($newId) $processedIds[] = $newId;
+    }
+}
+
+// --- Delete subjects that were removed in the form (present in DB but not in processedIds) ---
+if ($edit_sem || $current_sem) {
+    if (!empty($processedIds)) {
+        $ids_list = implode(',', array_map('intval', $processedIds));
+        $sql = "DELETE FROM subjects 
+                WHERE class_id = {$class_id} 
+                AND sem = {$current_sem} 
+                AND sub_id NOT IN ({$ids_list})";
+        $conn->query($sql);
+    } else {
+        // nothing submitted; delete all subjects for this sem
+        $sql = "DELETE FROM subjects WHERE class_id = {$class_id} AND sem = {$current_sem}";
+        $conn->query($sql);
+    }
+}
+
+// --- Update subject_summary table (insert or update) ---
+// comp_sub = number of compulsory rows, op_sub = number of optional rows, tot_sub = sum
+$comp_sub = (int)$comp_count;
+$op_sub   = (int)$opt_count;
+$tot_sub  = $comp_sub + $op_sub;
+
+// Upsert subject_summary by checking existence
+$check = $conn->prepare("SELECT COUNT(*) FROM subject_summary WHERE class_id = ? AND sem = ?");
+$check->bind_param("ii", $class_id, $current_sem);
+$check->execute();
+$check->bind_result($exists);
+$check->fetch();
+$check->close();
+
+if ($exists > 0) {
+    $upd = $conn->prepare("UPDATE subject_summary SET comp_sub=?, sel_comp_sub=?, op_sub=?, sel_op_sub=?, tot_sub=? WHERE class_id=? AND sem=?");
+    $upd ->bind_param("iiiiiii", $comp_sub, $sel_comp_sub, $op_sub, $sel_op_sub, $tot_sub, $class_id, $current_sem);
+    $upd ->execute();
+    $upd ->close();
+} else {
+    $ins = $conn->prepare("INSERT INTO subject_summary (class_id, sem, comp_sub, sel_comp_sub, op_sub, sel_op_sub, tot_sub) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $ins->bind_param("iiiiiii", $class_id, $current_sem, $comp_sub, $sel_comp_sub, $op_sub, $sel_op_sub, $tot_sub);
+    $ins->execute();
+    $ins->close();
+}
+// --- Also update these values in every subject row for this class+sem ---
+$updSubjects = $conn->prepare("
+    UPDATE subjects 
+    SET comp_sub=?, sel_comp_sub=?, op_sub=?, sel_op_sub=?, tot_sub=?
+    WHERE class_id=? AND sem=?");
+$updSubjects->bind_param("iiiiiii", $comp_sub, $sel_comp_sub, $op_sub, $sel_op_sub, $tot_sub, $class_id, $current_sem);
+$updSubjects->execute();
+$updSubjects->close();
+
+$res = $conn->query("
+    SELECT 
+        SUM(CASE WHEN type='compulsory' THEN 1 ELSE 0 END) as comp_sub,
+        SUM(CASE WHEN type='optional' THEN 1 ELSE 0 END) as op_sub
+    FROM subjects
+    WHERE class_id = {$class_id} AND sem = {$current_sem}
+");
+$row = $res->fetch_assoc();
+$comp_sub = (int)($row['comp_sub'] ?? 0);
+$op_sub   = (int)($row['op_sub'] ?? 0);
+$tot_sub  = $comp_sub + $op_sub;
+
+// Redirect back to addsub with selected class  
+header("Location: addsub.php?d_cls={$class_id}");
+// header("Location: addsub.php?d_cls={$class_id}&edit_sem={$current_sem}");
+exit;

@@ -1,0 +1,229 @@
+* {
+    margin: 0;
+    padding: 0;
+    font-family: "Inter";
+}
+
+body {
+    background: linear-gradient(135deg, #c9eaff, #eaf6ff);
+}
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.header {
+    position: relative;
+    height: 60px;
+    margin: 20px 50px;
+}
+
+.header img {
+    width: 70px;
+    position: absolute;
+    left: 25%;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.heading {
+    position: absolute;
+    text-align: center;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.7rem;
+    font-weight: bold;
+}
+
+.h6{
+  font-size: 16px;
+}
+.h6a{
+  font-size: 14px;
+}
+
+.header-icons {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    width: 5%;
+}
+
+.header-icons a {
+    font-size: 1.5rem;
+    color: black;
+    text-decoration: none;
+}
+
+.logout {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.5rem;
+    color: black;
+}
+
+/* Sidebar Styles */
+* {
+    box-sizing: border-box;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0px;
+    height: 100%;
+    background-color: #f8f9fa;
+    transition: width 0.3s ease;
+    border-right: 1px solid #ccc;
+    z-index: 1000;
+    overflow: hidden;
+    padding: 10px 0;
+    font-size: 18px;
+  }
+  
+  .sidebar.expanded {
+    width: 250px;
+    overflow: visible;
+  }
+  
+  .toggle-btn {
+    position: fixed;
+    top: 25px;
+    left: -40px;
+    transform: translateX(100%);
+    background-color: #0277b6;
+    color: white;
+    border: none;
+    border-radius: 0 5px 5px 0;
+    padding: 5px 10px;
+    cursor: pointer;
+    z-index: 2000;
+    font-size: 18px;
+  }
+  
+  .menu-content {
+    padding: 60px 10px 0px 20px;
+    background: none;
+  }
+  
+  /* Dropdown Menu */
+  .dropdown {
+    position: relative;
+    background: none;
+  }
+  
+  .dropbtn {
+    background-color: #40b2df;
+    border: none;
+    width: 100%;
+    padding: 12px;
+    text-align: left;
+    cursor: pointer;
+    font-weight: bold;
+    margin: 10px 0;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    font-size: 16px;
+    border-radius: 8px;
+  }
+  
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    left: 100%;
+    top: 0;
+    min-width: 350px;
+    background-color: #d1d1d1;
+    border-left: 3px solid #007bff;
+    padding: 10px;
+    z-index: 1050;
+    border-radius: 8px;
+  }
+  
+  .dropdown:hover .dropdown-content {
+    display: block;
+  }
+  
+  .dropdown-content a {
+    display: block;
+    padding: 4px;
+    text-decoration: none;
+    color: black;
+    transition: background-color 0.3s ease, color 0.3s ease;
+    background-color: #d1d1d1;
+    border-radius: 5px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.147);
+  }
+  
+  .dropdown-content a:hover {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  /* Submenu Styles */
+  .has-submenu {
+    position: relative;
+  }
+  
+  .has-submenu:hover > a {
+    background-color: #007bff;
+    color: white;
+    border-radius: 5px;
+  }
+  
+  .submenu {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 100%;
+    min-width: 350px;
+    background-color: #e0e0e0;
+    border-left: 3px solid #007bff;
+    z-index: 9999;
+    border-radius: 8px;
+    padding: 10px;
+  }
+  
+  .has-submenu:hover .submenu {
+    display: block;
+  }
+  
+  .submenu a {
+    padding: 4px;
+    display: block;
+    background-color: #d8d8d8b7;
+    color: black;
+    text-decoration: none;
+    border-radius: 5px;
+  }
+  
+  .submenu a:hover {
+    background-color: #007bff;
+    color: white;
+  }
+  
+  /* Arrow inside button */
+  .arw {
+    float: right;
+    font-size: 14px;
+    background: none;
+  }
+  
+  /* Optional button visibility transitions */
+  .action-button {
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    color: white;
+  }
+  
+  .hide-buttons {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }

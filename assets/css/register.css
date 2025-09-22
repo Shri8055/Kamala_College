@@ -1,0 +1,254 @@
+* {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter";
+}
+
+body {
+  background: linear-gradient(135deg, #c9eaff, #eaf6ff);
+  height: 95vh;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+form {
+  background-color: white;
+  padding: 1px;
+  max-width: 1600px;
+  margin: 0 auto;
+  margin-top: 10px;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(43, 43, 43, 0.094);
+  transition: .5s;
+}
+
+form table {
+  width: 100%;
+}
+
+.align{
+  padding-left: 25%;
+}
+.align1{
+  padding-left: 18%;
+}
+.align2{
+  padding-left: 5%;
+}
+
+form td {
+  padding: 5px;
+}
+
+form input,
+form select {
+  width: 90%;
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+#academic select,
+#academic input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.fstinp{
+  border-right: 1px solid rgba(0, 0, 0, 0.399);
+}
+
+form input:focus,
+form select:focus {
+  outline: none;
+  border-color: #0077b6;
+  box-shadow: 0 0 5px #0077b6;
+}
+
+label{
+  margin-top: 5px;
+}
+
+.tab-content table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.tabs {
+  display: flex;
+  background: linear-gradient(to right, #0077b6, #48cae4);
+  padding: 10px;
+  border-radius: 10px 10px 0 0;
+  overflow-x: auto;
+  margin: auto;
+  transition: .5s;
+}
+
+.fa-circle-check{
+  color: rgb(6, 170, 6);
+}
+
+.fa-circle-xmark{
+  color: crimson;
+}
+
+.tab {
+  margin-right: 10px;
+  padding: 10px;
+  border-radius: 8px 8px 0 0;
+  background-color: white;
+  font-weight: bold;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  transition: .5s;
+}
+
+.tab:hover {
+  background-color: #d0ebff;
+}
+
+.tab.active {
+  background-color: #e0f4ff;
+  color: #0077b6;
+  box-shadow: inset 0 -3px 0 #0077b6;
+}
+
+.tab-content {
+  border: 1px solid #ccc;
+  border-top: none;
+  padding: 20px;
+  display: none;
+  background: white;
+  border-radius: 0 0 10px 10px;
+  transition: .5s;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.btn-div {
+  width: 200px;
+  margin: 30px auto 0 auto;
+  text-align: center;
+}
+
+button[type="submit"],
+button.next-btn {
+  background: #0077b6;
+  color: white;
+  padding: 10px 20px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+button[type="submit"]:hover,
+button.next-btn:hover {
+  background: #005f8f;
+}
+
+#r_p_add, #r_r_add, #r_stu_B_dateW, #r_stu_email, #r_stu_p_email, #s_stu_mother_Oadd, #r_stu_father_Oadd, #r_stu_p_add{
+  width: 98%;
+}
+.tab-content {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.tab-content.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.form {
+  opacity: 0;
+  transform: translateY(30px);
+  animation: fadeInUp 0.6s ease forwards;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  form table,
+  form tr,
+  form td{
+    display: block;
+    width: 100%;
+  }
+  .tabs{
+    width: 100%;
+  }
+  .align, .align1, .aling2{
+    padding-left: 0;
+  }
+
+  form td {
+    padding: 10px 0;
+  }
+}
+#docsT {
+  width: 70%;
+  margin: auto;
+  border-collapse: collapse;
+}
+
+#docsT td, 
+#docsT th {
+  border: 1px solid #00000040;
+  padding: 8px 12px;
+}
+
+#docsT tr {
+  border-radius: 20px; /* won’t apply on rows */
+}
+
+#docsT td:first-child {
+  font-weight: 500;
+}
+
+#docsT button {
+  padding: 8px 12px;
+  border: none;
+  background: #4e73df;
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#docsT button:hover {
+  background: #2e59d9;
+}
+
+
+
+.subject-checkbox {
+    transform: scale(1.5); /* makes checkbox bigger */
+    margin: 10px;
+}
+.subject-label {
+    display: block; 
+    font-size: 16px;
+    padding: 6px;
+}
