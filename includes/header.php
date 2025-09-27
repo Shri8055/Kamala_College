@@ -36,6 +36,7 @@
       <a href="feem.php"><button class="dropbtn action-button">Add Fee Structure</button></a>
       <a href="register.php"><button class="dropbtn action-button">Student Registration</button></a>
       <a href="verify.php"><button class="dropbtn action-button">Student Verification</button></a>
+      <a href="rct.php"><button class="dropbtn action-button">Fee Receipt</button></a>
     </div>
     <div class="dropdown">
       <button class="dropbtn action-button">Master</button>
