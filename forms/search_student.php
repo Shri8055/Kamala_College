@@ -15,13 +15,27 @@ $stmt->execute();
 $res = $stmt->get_result();
 
 echo "<table>";
+echo "
+      <tr>
+        <td></td>
+        <td>PRN No</td>
+        <td>R-ID</td>
+        <td>Full Name</td>
+        <td>Class</td>
+        <td>Category</td>
+        <td>Ph-No</td>
+        <td>Fee type</td>
+      </tr>
+";
 while($row = $res->fetch_assoc()){
-    $fullName = htmlspecialchars($row['r_stu_name'] . " " . $row['r_stu_father'] . " " . $row['r_stu_sur']);
+    $fullName = htmlspecialchars($row['r_stu_name'] . " " . $row['r_stu_father'] . "" . $row['r_stu_sur']);
     $cls = htmlspecialchars($row['r_stu_admi_cls']);
     $cat = htmlspecialchars($row['r_stu_castcat']);
     $type = htmlspecialchars($row['type']);
     echo "<tr onclick=\"selectStudent('{$row['r_id']}', '{$row['prn_no']}', '{$fullName}', '{$cls}', '{$cat}', '{$type}')\">
+            <td>↳</td>
             <td>{$row['prn_no']}</td>
+            <td>{$row['r_id']}</td>
             <td>{$fullName}</td>
             <td>{$cls}</td>
             <td>{$cat}</td>

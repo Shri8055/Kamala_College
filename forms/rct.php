@@ -20,22 +20,77 @@ if($month >= 6) {
 <link rel="stylesheet" href="../assets/css/addclass.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-.search-box { margin: 20px 0; }
-.search-results { border: 1px solid #ccc; max-height: 200px; overflow-y: auto; }
+.search-box { margin: 20px 0; width: 70%; margin-left: 40px; display: inline-block;}
+.search-results { border: 1px solid #ccc; max-height: 200px; overflow-y: auto; padding: 0px 60px; }
 .search-results table { width: 100%; border-collapse: collapse; }
-.search-results td { padding: 6px; border-bottom: 1px solid #eee; cursor: pointer; }
+.search-results td { padding: 6px; border-bottom: 1px solid #5b5b5b84; cursor: pointer; }
 .search-results tr:hover { background: #f2f2f2; }
 </style>
+<style>
+/* === Fee Section Styling === */
+#feeRows h4 {
+    margin: 5px 0 8px;
+    padding: 6px 10px;
+    background: #0056b3;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.fee-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.fee-item:last-child {
+    border-bottom: none;
+}
+
+.fee-label {
+    font-weight: 500;
+}
+
+.fee-amount {
+    font-weight: bold;
+    color: #333;
+}
+
+.fee-totals {
+    background: #f9f9f9;
+    font-weight: bold;
+    text-align: center;
+}
+
+.fee-grand {
+    background: #d1ffd1;
+    font-weight: bold;
+    font-size: 15px;
+    text-align: center;
+}
+
+#pendingResult {
+    margin-top: 10px;
+    padding: 8px;
+    border-radius: 5px;
+    background: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+</style>
+
 </head>
 <body>
 
-<h3>Fee Receipt</h3>
+<h3 style="text-align: center; margin-top: 10px;">Fee Receipt</h3>
 
 <!-- 🔍 Search Box -->
-<div class="search-box">
-    <label>Search Student: </label>
-    <input type="text" id="stuSearch" placeholder="Search by PRN, ID, Phone, Name..." style="width: 300px; padding: 5px;">
+<div class="search-box" style="display: flex; align-items: center; gap: 10px;">
+  <label for="stuSearch" style="padding-top: 5px;">Search Student:</label>
+  <input type="text" id="stuSearch" placeholder="Search by PRN, R-ID, Phone, Name..." style="width: 500px; padding: 5px;">
 </div>
+
 <div id="searchResults" class="search-results"></div>
 
 <form id="receiptForm" action="castem.php" method="POST">
@@ -43,31 +98,34 @@ if($month >= 6) {
         <tr>
             <td><label for="r_no">Receipt No.:</label></td>
             <td><input id="r_no" name="r_no" type="text" value="1001" style="text-align: center;" required disabled></td>
-            <td></td><td></td>
+            <td></td>
+            <td></td>
             <td><label for="r_date">Receipt Date:</label></td>
             <td><input id="r_date" name="r_date" type="date"></td>
         </tr>
         <tr>
             <td><label for="r_stu_name">Student Name:</label></td>
-            <td colspan="3"><input id="r_stu_name" name="r_stu_name" type="text" readonly></td>
+            <td><input id="r_stu_name" name="r_stu_name" type="text" readonly></td=>
             <td><label for="r_acad_yr">Academic Year:</label></td>
             <td><input type="text" id="r_acad_yr" name="r_acad_yr" value="<?php echo $acadYear; ?>" readonly></td>
-        </tr>
-        <tr>
-            <td><label for="r_stu_str">Stream:</label></td>
-            <td colspan="3"><input type="text" id="r_stu_str" name="r_stu_str" readonly></td>
             <td><label for="r_stu_cat">Category:</label></td>
             <td><input type="text" id="r_stu_cat" name="r_stu_cat" readonly></td>
         </tr>
+        <tr>
+            <td><label for="r_stu_str">Stream:</label></td>
+            <td colspan="3"><input style="width: 96%;" type="text" id="r_stu_str" name="r_stu_str" readonly></td>
+        </tr>
 
         <!-- Fee Particulars will load here -->
-        <tr><td colspan="6"><h4>Fee Particulars</h4></td></tr>
+        <tr>
+            <td><h4>Fee Particulars</h4></td>
+        </tr>
         <tbody id="feeRows"></tbody>
 
         <tr>
-            <td><label for="fee_tot">Total:</label></td>
-            <td><input type="text" id="fee_tot" name="fee_tot" readonly></td>
+            <td><input style="background-color: #a0ff7a04; text-align: right;" type="hidden" id="fee_tot" name="fee_tot" readonly></td>
         </tr>
+        
     </table>
 </form>
 
@@ -113,18 +171,87 @@ function selectStudent(rid, prn, fullname, cls, category, stuType) {
         .then(data => {
             let feeBody = document.getElementById("feeRows");
             feeBody.innerHTML = "";
-            let total = 0;
+
+            let tuitionFees = [];
+            let universityFees = [];
+
+            // Group fees manually
             data.forEach(row => {
-                total += parseFloat(row.amount);
-                feeBody.innerHTML += `
-                <tr>
-                    <td>${row.sh_nm}</td>
-                    <td><input type="text" value="${row.amount}" readonly></td>
-                </tr>`;
+                if (row.sh_nm === "TF" || row.fl_nm.toLowerCase().includes("tution")) {
+                    tuitionFees.push(row); // Only tuition fee
+                } else {
+                    universityFees.push(row); // All others go here
+                }
             });
-            document.getElementById("fee_tot").value = total.toFixed(2);
+
+            // Totals
+            let tuitionTotal = tuitionFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+            let universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+            let grandTotal = tuitionTotal + universityTotal;
+
+            // Helper: render two-column layout
+            function renderColumns(arr, label) {
+                let html = `<tr><td colspan="6"><h4>${label}</h4></td></tr>`;
+                arr.forEach(row => {
+                    html += `
+                    <tr class="fee-item">
+                        <td colspan="4" class="fee-label">${row.fl_nm}</td>
+                        <td colspan="2" class="fee-amount">₹${parseFloat(row.amount).toFixed(2)}</td>
+                    </tr>`;
+                });
+                return html;
+            }
+
+            // Render particulars
+            feeBody.innerHTML += renderColumns(universityFees, "University Fees");
+            feeBody.innerHTML += renderColumns(tuitionFees, "Tuition Fees");
+
+            // Totals row (single row)
+            feeBody.innerHTML += `
+                <tr class="fee-totals">
+                    <td colspan="2">University Fees Total: ₹${universityTotal.toFixed(2)}</td>
+                    <td colspan="2">Tuition Fees Total: ₹${tuitionTotal.toFixed(2)}</td>
+                    <td colspan="2">Grand Total: ₹${grandTotal.toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td><label for="payable">Payable Amount:</label></td>
+                    <td><input type="number" id="payable" name="payable" min="1" max="${grandTotal}" required></td>
+                </tr>
+                <tr>
+                    <td colspan="6" id="pendingResult"></td>
+                </tr>
+            `;
+
+            document.getElementById("fee_tot").value = grandTotal.toFixed(2);
+
+            // Handle payable input logic
+            document.getElementById("payable").addEventListener("input", function(){
+                let val = parseFloat(this.value);
+                if (isNaN(val) || val <= 0 || val > grandTotal) {
+                    document.getElementById("pendingResult").innerHTML = "❌ Invalid amount!";
+                    return;
+                }
+
+                let uniRemain = universityTotal;
+                let tuitionRemain = tuitionTotal;
+
+                if (val <= uniRemain) {
+                    uniRemain -= val;
+                } else {
+                    val -= uniRemain;
+                    uniRemain = 0;
+                    tuitionRemain -= val;
+                }
+
+                document.getElementById("pendingResult").innerHTML = `
+                    University Fees Pending: ₹${uniRemain.toFixed(2)} <br>
+                    Tuition Fees Pending: ₹${tuitionRemain.toFixed(2)}
+                `;
+            });
         });
 }
+
+
 </script>
 </body>
 </html>

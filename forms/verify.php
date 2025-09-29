@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['edit'])) {
         status='Admitted'
         WHERE r_id=?";
 
-    $stmt = $conn->prepare($updateSql);
+
 
     // collect all variables into an array
     $vars = [
@@ -118,6 +118,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['edit'])) {
         $_POST['r_stu_inc'], $_POST['r_stu_rel'], $_POST['r_stu_type'],
         $r_id
     ];
+
+    $stmt = $conn->prepare($updateSql);
+    $updateAdmts = "UPDATE admts SET type=? WHERE r_id=?";
+    $stmt2 = $conn->prepare($updateAdmts);
+    $stmt2->bind_param("si", $_POST['r_stu_type'], $r_id);
+    $stmt2->execute();
+
 
     // generate the type string dynamically
     $types = str_repeat("s", count($vars)-1) . "i"; // last param ($r_id) is int
@@ -1219,13 +1226,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td colspan="2">
                         <select name="r_stu_inc" id="r_stu_inc" required>
                             <option value="> 50,000 Rs" <?= ($student && $student['r_stu_inc']=='> 50,000 Rs') ? 'selected' : '' ?> > > 50,000 Rs</option>
-                            <option value="1,00,000 Rs - 2,00,000 Rs" <?= ($student && $student['r_stu_inc']=='1,00,000 Rs - 2,00,000 Rs') ? 'selected' : '' ?> >1,00,000 Rs - 2,00,000 Rs</option>
-                            <option value="2,00,000 Rs - 3,00,000 Rs" <?= ($student && $student['r_stu_inc']=='2,00,000 Rs - 3,00,000 Rs') ? 'selected' : '' ?> >2,00,000 Rs - 3,00,000 Rs</option>
-                            <option value="3,00,000 Rs - 4,00,000 Rs" <?= ($student && $student['r_stu_inc']=='3,00,000 Rs - 4,00,000 Rs') ? 'selected' : '' ?> >3,00,000 Rs - 4,00,000 Rs</option>
-                            <option value="4,00,000 Rs - 5,00,000 Rs" <?= ($student && $student['r_stu_inc']=='4,00,000 Rs - 5,00,000 Rs') ? 'selected' : '' ?> >4,00,000 Rs - 5,00,000 Rs</option>
-                            <option value="5,00,000 Rs - 6,00,000 Rs" <?= ($student && $student['r_stu_inc']=='5,00,000 Rs - 6,00,000 Rs') ? 'selected' : '' ?> >5,00,000 Rs - 6,00,000 Rs</option>
-                            <option value="6,00,000 Rs - 7,00,000 Rs" <?= ($student && $student['r_stu_inc']=='6,00,000 Rs - 7,00,000 Rs') ? 'selected' : '' ?> >6,00,000 Rs - 7,00,000 Rs</option>
-                            <option value="7,00,000 Rs - 8,00,000 Rs" <?= ($student && $student['r_stu_inc']=='7,00,000 Rs - 8,00,000 Rs') ? 'selected' : '' ?> >7,00,000 Rs - 8,00,000 Rs</option>
+                            <option value="1,00,000 Rs - 2,00,000 Rs" <?= ($student && $student['r_stu_inc']=='1,00,000 Rs-2,00,000 Rs') ? 'selected' : '' ?> >1,00,000 Rs - 2,00,000 Rs</option>
+                            <option value="2,00,000 Rs - 3,00,000 Rs" <?= ($student && $student['r_stu_inc']=='2,00,000 Rs-3,00,000 Rs') ? 'selected' : '' ?> >2,00,000 Rs - 3,00,000 Rs</option>
+                            <option value="3,00,000 Rs - 4,00,000 Rs" <?= ($student && $student['r_stu_inc']=='3,00,000 Rs-4,00,000 Rs') ? 'selected' : '' ?> >3,00,000 Rs - 4,00,000 Rs</option>
+                            <option value="4,00,000 Rs - 5,00,000 Rs" <?= ($student && $student['r_stu_inc']=='4,00,000 Rs-5,00,000 Rs') ? 'selected' : '' ?> >4,00,000 Rs - 5,00,000 Rs</option>
+                            <option value="5,00,000 Rs - 6,00,000 Rs" <?= ($student && $student['r_stu_inc']=='5,00,000 Rs-6,00,000 Rs') ? 'selected' : '' ?> >5,00,000 Rs - 6,00,000 Rs</option>
+                            <option value="6,00,000 Rs - 7,00,000 Rs" <?= ($student && $student['r_stu_inc']=='6,00,000 Rs-7,00,000 Rs') ? 'selected' : '' ?> >6,00,000 Rs - 7,00,000 Rs</option>
+                            <option value="7,00,000 Rs - 8,00,000 Rs" <?= ($student && $student['r_stu_inc']=='7,00,000 Rs-8,00,000 Rs') ? 'selected' : '' ?> >7,00,000 Rs - 8,00,000 Rs</option>
                             <option value="< 8,00,000 Rs"  <?= ($student && $student['r_stu_inc']=='< 8,00,000 Rs') ? 'selected' : '' ?>  > < 8,00,000 Rs</option>
                         </select>
                     </td>
@@ -1259,7 +1266,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td class="cau"><label for="r_stu_type" class="align1">Fee Type :</label></td>
                     <td class="cau">
                         <select name="r_stu_type" id="r_stu_type" required>
-                            <option value="">-- Select --</option>
+                            <option value="">-- Select Type --</option>
                             <?php
                             $enumResult = $conn->query("SHOW COLUMNS FROM student_registration LIKE 'type'");
                             $enumRow = $enumResult->fetch_assoc();
@@ -1267,6 +1274,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             $enumArray = explode(",", $enumValues);
 
                             foreach ($enumArray as $val) {
+                                $val = trim($val);
                                 echo "<option value='$val'>$val</option>";
                             }
                             ?>

@@ -19,7 +19,7 @@ $term_id = $res['term_id'] ?? 0;
 
 if($term_id > 0){
     $fees = [];
-    $feeQ = $conn->prepare("SELECT sh_nm, amount FROM feestru WHERE term_id=? AND type=?");
+    $feeQ = $conn->prepare("SELECT sh_nm, fl_nm, amount FROM feestru WHERE term_id=? AND type=? AND fl_nm <> 'Total'");
     $feeQ->bind_param("is", $term_id, $stuType);
     $feeQ->execute();
     $feeRes = $feeQ->get_result();
