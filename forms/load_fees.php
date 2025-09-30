@@ -19,7 +19,8 @@ $term_id = $res['term_id'] ?? 0;
 
 if($term_id > 0){
     $fees = [];
-    $feeQ = $conn->prepare("SELECT sh_nm, fl_nm, amount FROM feestru WHERE term_id=? AND type=? AND fl_nm <> 'Total'");
+    // include fee_id and fee_scope and order by fee_id so DB order is preserved
+    $feeQ = $conn->prepare("SELECT fee_id, fee_scope, sh_nm, fl_nm, amount FROM feestru WHERE term_id=? AND type=? AND fl_nm <> 'Total' ORDER BY fee_id ASC");
     $feeQ->bind_param("is", $term_id, $stuType);
     $feeQ->execute();
     $feeRes = $feeQ->get_result();

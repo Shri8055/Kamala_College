@@ -17,10 +17,10 @@ if($month >= 6) {
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Kamala College | Fee Receipt</title>
-<link rel="stylesheet" href="../assets/css/addclass.css">
+<link rel="stylesheet" href="../assets/css/rct.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-.search-box { margin: 20px 0; width: 70%; margin-left: 40px; display: inline-block;}
+.search-box { margin: 0px 0; width: 70%; margin-left: 40px; display: inline-block;}
 .search-results { border: 1px solid #ccc; max-height: 200px; overflow-y: auto; padding: 0px 60px; }
 .search-results table { width: 100%; border-collapse: collapse; }
 .search-results td { padding: 6px; border-bottom: 1px solid #5b5b5b84; cursor: pointer; }
@@ -35,13 +35,13 @@ if($month >= 6) {
     color: #fff;
     border-radius: 4px;
     font-size: 16px;
-}
+} 
 
 .fee-item {
     display: flex;
     justify-content: space-between;
     padding: 4px 8px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #36363621;
 }
 
 .fee-item:last-child {
@@ -55,18 +55,19 @@ if($month >= 6) {
 .fee-amount {
     font-weight: bold;
     color: #333;
+    position: relative;
+    float: right;
 }
 
 .fee-totals {
     background: #f9f9f9;
     font-weight: bold;
-    text-align: center;
 }
 
 .fee-grand {
     background: #d1ffd1;
     font-weight: bold;
-    font-size: 15px;
+    font-size: 20px;
     text-align: center;
 }
 
@@ -78,6 +79,23 @@ if($month >= 6) {
     color: #856404;
     border: 1px solid #ffeeba;
 }
+#feeRows table {
+  border: 1px solid #ccc;
+}
+
+#feeRows th, #feeRows td {
+  padding: 0px 10px;
+  text-align: left;
+}
+
+#feeRows input {
+  width: 130px;
+  text-align: right;
+  float: right;
+  padding: 2px;
+  border-radius: 0px;
+}
+
 </style>
 
 </head>
@@ -93,33 +111,53 @@ if($month >= 6) {
 
 <div id="searchResults" class="search-results"></div>
 
-<form id="receiptForm" action="castem.php" method="POST">
+<form id="receiptForm" action="rct.php" method="POST">
     <table>
         <tr>
-            <td><label for="r_no">Receipt No.:</label></td>
+            <td style="width: 10%;"><label for="r_no">Receipt No.:</label></td>
             <td><input id="r_no" name="r_no" type="text" value="1001" style="text-align: center;" required disabled></td>
-            <td></td>
-            <td></td>
             <td><label for="r_date">Receipt Date:</label></td>
             <td><input id="r_date" name="r_date" type="date"></td>
+            <td><label for="r_acad_yr">Academic Year:</label></td>
+            <td><input type="text" id="r_acad_yr" name="r_acad_yr" value="<?php echo $acadYear; ?>" readonly></td>
+            <td colspan="2"><button>CALCULATOR</button></td>
+        </tr>
+        <tr>
+            <td><label for="r_stu_str">Class:</label></td>
+            <td colspan="3"><input style="width: 96%;" type="text" id="r_stu_str" name="r_stu_str" readonly></td>
+            <td><label for="prn_no">PRN No:</label></td>
+            <td><input type="text" id="prn_no" name="prn_no" readonly></td>
+            <td><label for="type">Fee type:</label></td>
+            <td><input type="text" id="type" name="type" readonly></td>
         </tr>
         <tr>
             <td><label for="r_stu_name">Student Name:</label></td>
-            <td><input id="r_stu_name" name="r_stu_name" type="text" readonly></td=>
-            <td><label for="r_acad_yr">Academic Year:</label></td>
-            <td><input type="text" id="r_acad_yr" name="r_acad_yr" value="<?php echo $acadYear; ?>" readonly></td>
+            <td colspan="3"><input style="width: 96%;" id="r_stu_name" name="r_stu_name" type="text" readonly></td>
+            <td></td>
+            <td></td>
             <td><label for="r_stu_cat">Category:</label></td>
             <td><input type="text" id="r_stu_cat" name="r_stu_cat" readonly></td>
         </tr>
+    </table><hr style="width: 80%; margin: 10px auto; border-radius: 60%;">
+    <table>
         <tr>
-            <td><label for="r_stu_str">Stream:</label></td>
-            <td colspan="3"><input style="width: 96%;" type="text" id="r_stu_str" name="r_stu_str" readonly></td>
-        </tr>
-
+            <td style="width: 10%;"><h4>Receipt Amount :</h4></td>
+            <td style="width: 18%;"><input style="width: 90%;" type="text" placeholder="Rct Amount"></td>
+            <td style="width: 8%;"><label for="">Payment Type :</label></td>
+            <td style="width: 13%;"><select name="" id="">
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="DD">DD</option>
+                <option value="NEFT / RTGS">NEFT / RTGS</option>
+            </select></td>
+            <td style="width: 10%;"><label for="">UTR/DD/RTGS No.:</label></td>
+            <td style="width: 25%;"><input type="text"></td>
+            <td><input style="cursor: pointer; background-color: #98ff6f9f; border: 1px solid black; width: 60%" type="button" value="Print"></td>
+         </tr>
+    </table>
+    <table>
         <!-- Fee Particulars will load here -->
-        <tr>
-            <td><h4>Fee Particulars</h4></td>
-        </tr>
+         
         <tbody id="feeRows"></tbody>
 
         <tr>
@@ -159,98 +197,104 @@ document.getElementById("stuSearch").addEventListener("keyup", function(){
 });
 
 // 📌 When row clicked
+// 📌 When row clicked
 function selectStudent(rid, prn, fullname, cls, category, stuType) {
+
     document.getElementById("searchResults").innerHTML = "";
     document.getElementById("r_stu_name").value = fullname;
     document.getElementById("r_stu_str").value = cls;
     document.getElementById("r_stu_cat").value = category;
+    document.getElementById("prn_no").value = prn;
+    document.getElementById("type").value = stuType;
 
-    // Fetch fee structure with type
     fetch("load_fees.php?cls=" + encodeURIComponent(cls) + "&type=" + encodeURIComponent(stuType))
-        .then(res => res.json())
-        .then(data => {
-            let feeBody = document.getElementById("feeRows");
-            feeBody.innerHTML = "";
+  .then(res => res.json())
+  .then(data => {
+    let feeBody = document.getElementById("feeRows");
+    feeBody.innerHTML = "";
 
-            let tuitionFees = [];
-            let universityFees = [];
+    let universityFees = data.filter(row => row.fee_scope === "university");
+    let collegeFees    = data.filter(row => row.fee_scope === "college");
 
-            // Group fees manually
-            data.forEach(row => {
-                if (row.sh_nm === "TF" || row.fl_nm.toLowerCase().includes("tution")) {
-                    tuitionFees.push(row); // Only tuition fee
-                } else {
-                    universityFees.push(row); // All others go here
-                }
-            });
+    let universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+    let collegeTotal    = collegeFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+    let grandTotal      = universityTotal + collegeTotal;
 
-            // Totals
-            let tuitionTotal = tuitionFees.reduce((s, f) => s + parseFloat(f.amount), 0);
-            let universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
-            let grandTotal = tuitionTotal + universityTotal;
+    let html = `
+  <tr>
+    <td colspan="6">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+        
+        <!-- University Fees -->
+        <table style="width:100%; border-collapse: collapse;" border="1">
+          <thead>
+            <tr style="background:#0056b3;color:#fff;">
+              <th colspan="3">University / Other Fees</th>
+            </tr>
+            <tr>
+              <th>Particular</th>
+              <th>Amount</th>
+              <th>Pay</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${universityFees.map(uni => `
+              <tr>
+                <td>${uni.fl_nm}</td>
+                <td style="text-align:right;">${parseFloat(uni.amount).toFixed(2)}</td>
+                <td><input type="number" name="pay_fee[${uni.fee_id}]" value="${parseFloat(uni.amount).toFixed(2)}"></td>
+              </tr>
+            `).join("")}
+          </tbody>
+          <tfoot>
+            <tr class="fee-totals">
+              <td colspan="5" >University Fees Total: ₹${universityTotal.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
 
-            // Helper: render two-column layout
-            function renderColumns(arr, label) {
-                let html = `<tr><td colspan="6"><h4>${label}</h4></td></tr>`;
-                arr.forEach(row => {
-                    html += `
-                    <tr class="fee-item">
-                        <td colspan="4" class="fee-label">${row.fl_nm}</td>
-                        <td colspan="2" class="fee-amount">₹${parseFloat(row.amount).toFixed(2)}</td>
-                    </tr>`;
-                });
-                return html;
-            }
+        <!-- College Fees -->
+        <table style="width:100%; border-collapse: collapse;" border="1">
+          <thead>
+            <tr style="background:#0056b3;color:#fff;">
+              <th colspan="3">College Fees</th>
+            </tr>
+            <tr>
+              <th>Particular</th>
+              <th>Amount</th>
+              <th>Pay</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${collegeFees.map(col => `
+              <tr>
+                <td>${col.fl_nm}</td>
+                <td style="text-align:right;">${parseFloat(col.amount).toFixed(2)}</td>
+                <td><input type="number" name="pay_fee[${col.fee_id}]" value="${parseFloat(col.amount).toFixed(2)}"></td>
+              </tr>
+            `).join("")}
+          </tbody>
+          <tfoot>
+            <tr class="fee-totals">
+              <td colspan="5" >College Fees Total: ₹${collegeTotal.toFixed(2)}</td>
+            </tr>
+          </tfoot>
+        </table>
 
-            // Render particulars
-            feeBody.innerHTML += renderColumns(universityFees, "University Fees");
-            feeBody.innerHTML += renderColumns(tuitionFees, "Tuition Fees");
+      </div>
+    </td>
+  </tr>
 
-            // Totals row (single row)
-            feeBody.innerHTML += `
-                <tr class="fee-totals">
-                    <td colspan="2">University Fees Total: ₹${universityTotal.toFixed(2)}</td>
-                    <td colspan="2">Tuition Fees Total: ₹${tuitionTotal.toFixed(2)}</td>
-                    <td colspan="2">Grand Total: ₹${grandTotal.toFixed(2)}</td>
-                </tr>
-                <tr>
-                    <td><label for="payable">Payable Amount:</label></td>
-                    <td><input type="number" id="payable" name="payable" min="1" max="${grandTotal}" required></td>
-                </tr>
-                <tr>
-                    <td colspan="6" id="pendingResult"></td>
-                </tr>
-            `;
+  <!-- Grand Total -->
+  <tr class="fee-grand">
+    <td colspan="6">Grand Total: ₹${grandTotal.toFixed(2)}</td>
+  </tr>
+`;
 
-            document.getElementById("fee_tot").value = grandTotal.toFixed(2);
-
-            // Handle payable input logic
-            document.getElementById("payable").addEventListener("input", function(){
-                let val = parseFloat(this.value);
-                if (isNaN(val) || val <= 0 || val > grandTotal) {
-                    document.getElementById("pendingResult").innerHTML = "❌ Invalid amount!";
-                    return;
-                }
-
-                let uniRemain = universityTotal;
-                let tuitionRemain = tuitionTotal;
-
-                if (val <= uniRemain) {
-                    uniRemain -= val;
-                } else {
-                    val -= uniRemain;
-                    uniRemain = 0;
-                    tuitionRemain -= val;
-                }
-
-                document.getElementById("pendingResult").innerHTML = `
-                    University Fees Pending: ₹${uniRemain.toFixed(2)} <br>
-                    Tuition Fees Pending: ₹${tuitionRemain.toFixed(2)}
-                `;
-            });
-        });
+    feeBody.innerHTML = html;
+    document.getElementById("fee_tot").value = grandTotal.toFixed(2);
+  });
 }
-
 
 </script>
 </body>
