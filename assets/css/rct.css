@@ -33,7 +33,7 @@ form table {
 }
 
 form td {
-  padding: 1px;
+  padding: 0px;
 }
 
 .td {
@@ -127,6 +127,7 @@ button.next-btn:hover {
   border-bottom: 1px solid #ccc;
   padding: 5px;
   text-align: center;
+  border-bottom: 1px solid #6cdefbc5;
 }
 .delete-icon {
   color: red;

@@ -70,6 +70,12 @@ if($month >= 6) {
     font-size: 20px;
     text-align: center;
 }
+.pen-amt{
+    background: #ffd3d1ff;
+    font-weight: bold;
+    font-size: 20px;
+    text-align: center;
+}
 
 #pendingResult {
     margin-top: 10px;
@@ -95,6 +101,18 @@ if($month >= 6) {
   padding: 2px;
   border-radius: 0px;
 }
+#feeRows{
+  width: 70px;
+}
+#feeRows td.pay-cell {
+  width: 120px;
+  text-align: center;
+}
+#feeRows td.pay-cell input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: right;
+}
 
 </style>
 
@@ -115,7 +133,7 @@ if($month >= 6) {
     <table>
         <tr>
             <td style="width: 10%;"><label for="r_no">Receipt No.:</label></td>
-            <td><input id="r_no" name="r_no" type="text" value="1001" style="text-align: center;" required disabled></td>
+            <td><input id="r_no" name="r_no" type="text" value="1001" style="text-align: center; background-color: #ffd3d1;" required disabled></td>
             <td><label for="r_date">Receipt Date:</label></td>
             <td><input id="r_date" name="r_date" type="date"></td>
             <td><label for="r_acad_yr">Academic Year:</label></td>
@@ -152,13 +170,14 @@ if($month >= 6) {
             </select></td>
             <td style="width: 10%;"><label for="">UTR/DD/RTGS No.:</label></td>
             <td style="width: 25%;"><input type="text"></td>
+            <td><input style="cursor: pointer; background-color: #4fc2ffbc; border: 1px solid black; width: 60%" type="button" value="Save"></td>
             <td><input style="cursor: pointer; background-color: #98ff6f9f; border: 1px solid black; width: 60%" type="button" value="Print"></td>
          </tr>
     </table>
     <table>
         <!-- Fee Particulars will load here -->
          
-        <tbody id="feeRows"></tbody>
+        <tbody id="feeRows" style="width: 100%;"></tbody>
 
         <tr>
             <td><input style="background-color: #a0ff7a04; text-align: right;" type="hidden" id="fee_tot" name="fee_tot" readonly></td>
@@ -196,42 +215,70 @@ document.getElementById("stuSearch").addEventListener("keyup", function(){
         });
 });
 
-// 📌 When row clicked
-// 📌 When row clicked
-function selectStudent(rid, prn, fullname, cls, category, stuType) {
+// =====================
+// Render Fee Tables
+// =====================
+function renderFees(data, receiptAmt = null) {
+  let feeBody = document.getElementById("feeRows");
+  feeBody.innerHTML = "";
 
-    document.getElementById("searchResults").innerHTML = "";
-    document.getElementById("r_stu_name").value = fullname;
-    document.getElementById("r_stu_str").value = cls;
-    document.getElementById("r_stu_cat").value = category;
-    document.getElementById("prn_no").value = prn;
-    document.getElementById("type").value = stuType;
+  let universityFees = data.filter(row => row.fee_scope === "university");
+  let collegeFees    = data.filter(row => row.fee_scope === "college");
 
-    fetch("load_fees.php?cls=" + encodeURIComponent(cls) + "&type=" + encodeURIComponent(stuType))
-  .then(res => res.json())
-  .then(data => {
-    let feeBody = document.getElementById("feeRows");
-    feeBody.innerHTML = "";
+  let universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+  let collegeTotal    = collegeFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+  let grandTotal      = universityTotal + collegeTotal;
 
-    let universityFees = data.filter(row => row.fee_scope === "university");
-    let collegeFees    = data.filter(row => row.fee_scope === "college");
+  // ✅ Validation: stop user if entered more than Grand Total
+  if (receiptAmt !== null && receiptAmt > grandTotal) {
+    alert("❌ Receipt Amount cannot be greater than Grand Total ("+grandTotal.toFixed(2)+")");
+    receiptAmt = grandTotal;
+    document.querySelector("input[placeholder='Rct Amount']").value = grandTotal.toFixed(2);
+  }
 
-    let universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
-    let collegeTotal    = collegeFees.reduce((s, f) => s + parseFloat(f.amount), 0);
-    let grandTotal      = universityTotal + collegeTotal;
+  // ================= Allocation Logic =================
+  let remaining = receiptAmt !== null ? receiptAmt : grandTotal;  // default: show full fee if no receiptAmt
 
-    let html = `
+  // Step 1: Deduct University fees
+  universityFees.forEach(f => {
+    let amt = parseFloat(f.amount);
+    let pay = Math.min(amt, remaining);
+    f.paid = (receiptAmt !== null ? pay : amt); // full fee if receiptAmt not given
+    remaining -= pay;
+  });
+
+  // Step 2: Deduct College fees except Tuition Fee
+  collegeFees.filter(f => f.sh_nm !== "TF").forEach(f => {
+    let amt = parseFloat(f.amount);
+    let pay = Math.min(amt, remaining);
+    f.paid = (receiptAmt !== null ? pay : amt);
+    remaining -= pay;
+  });
+
+  // Step 3: Deduct Tuition Fee
+  let tuitionFee = collegeFees.find(f => f.sh_nm === "TF");
+  if (tuitionFee) {
+    let amt = parseFloat(tuitionFee.amount);
+    let pay = Math.min(amt, remaining);
+    tuitionFee.paid = (receiptAmt !== null ? pay : amt);
+    remaining -= pay;
+  }
+
+  // Default unpaid = full fee if not touched
+  [...universityFees, ...collegeFees].forEach(f => {
+    if (typeof f.paid === "undefined") f.paid = (receiptAmt !== null ? 0 : parseFloat(f.amount));
+  });
+
+  // ================= HTML Tables =================
+  let html = `
   <tr>
     <td colspan="6">
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
-        
+
         <!-- University Fees -->
         <table style="width:100%; border-collapse: collapse;" border="1">
           <thead>
             <tr style="background:#0056b3;color:#fff;">
-              <th colspan="3">University / Other Fees</th>
-            </tr>
-            <tr>
               <th>Particular</th>
               <th>Amount</th>
               <th>Pay</th>
@@ -242,13 +289,14 @@ function selectStudent(rid, prn, fullname, cls, category, stuType) {
               <tr>
                 <td>${uni.fl_nm}</td>
                 <td style="text-align:right;">${parseFloat(uni.amount).toFixed(2)}</td>
-                <td><input type="number" name="pay_fee[${uni.fee_id}]" value="${parseFloat(uni.amount).toFixed(2)}"></td>
+                <td class="pay-cell"><input type="number" value="${uni.paid.toFixed(2)}"></td>
               </tr>
             `).join("")}
           </tbody>
           <tfoot>
             <tr class="fee-totals">
-              <td colspan="5" >University Fees Total: ₹${universityTotal.toFixed(2)}</td>
+              <td colspan="2" style="text-align:right;">University Fees Total:</td>
+              <td class="pay-cell">₹${universityTotal.toFixed(2)}</td>
             </tr>
           </tfoot>
         </table>
@@ -257,9 +305,6 @@ function selectStudent(rid, prn, fullname, cls, category, stuType) {
         <table style="width:100%; border-collapse: collapse;" border="1">
           <thead>
             <tr style="background:#0056b3;color:#fff;">
-              <th colspan="3">College Fees</th>
-            </tr>
-            <tr>
               <th>Particular</th>
               <th>Amount</th>
               <th>Pay</th>
@@ -270,13 +315,14 @@ function selectStudent(rid, prn, fullname, cls, category, stuType) {
               <tr>
                 <td>${col.fl_nm}</td>
                 <td style="text-align:right;">${parseFloat(col.amount).toFixed(2)}</td>
-                <td><input type="number" name="pay_fee[${col.fee_id}]" value="${parseFloat(col.amount).toFixed(2)}"></td>
+                <td class="pay-cell"><input type="number" value="${col.paid.toFixed(2)}"></td>
               </tr>
             `).join("")}
           </tbody>
           <tfoot>
             <tr class="fee-totals">
-              <td colspan="5" >College Fees Total: ₹${collegeTotal.toFixed(2)}</td>
+              <td colspan="2" style="text-align:right;">College Fees Total:</td>
+              <td class="pay-cell">₹${collegeTotal.toFixed(2)}</td>
             </tr>
           </tfoot>
         </table>
@@ -287,15 +333,50 @@ function selectStudent(rid, prn, fullname, cls, category, stuType) {
 
   <!-- Grand Total -->
   <tr class="fee-grand">
-    <td colspan="6">Grand Total: ₹${grandTotal.toFixed(2)}</td>
+    <td colspan="6">Grand Total : ₹${grandTotal.toFixed(2)}</td>
   </tr>
-`;
+  <!-- Pending -->
+  <tr class="pen-amt">
+    <td colspan="6">Pending Fee: ₹${(grandTotal - (receiptAmt !== null ? receiptAmt : grandTotal)).toFixed(2)}</td>
+  </tr>
+  <!-- Recommended -->
+  <tr style="background:#fff3cd;font-weight:bold;">
+    <td colspan="6" style="background:#6cdefbc5; padding:8px; font-weight:bold; color:#333;">
+      Recommended Payment: <br>
+      ➤ University Fees: ₹${universityTotal.toFixed(2)} <br>
+      ➤ College Fees (without Tuition): ₹${(collegeTotal - (tuitionFee ? tuitionFee.amount : 0)).toFixed(2)} <br>
+      <h3>➤ Total Recommended: ₹${(universityTotal + (collegeTotal - (tuitionFee ? tuitionFee.amount : 0))).toFixed(2)}</h3>
+    </td>
+  </tr>
+  `;
 
-    feeBody.innerHTML = html;
-    document.getElementById("fee_tot").value = grandTotal.toFixed(2);
-  });
+  feeBody.innerHTML = html;
+  document.getElementById("fee_tot").value = grandTotal.toFixed(2);
 }
 
+// 📌 When row clicked
+function selectStudent(rid, prn, fullname, cls, category, stuType) {
+  document.getElementById("searchResults").innerHTML = "";
+  document.getElementById("r_stu_name").value = fullname;
+  document.getElementById("r_stu_str").value = cls;
+  document.getElementById("r_stu_cat").value = category;
+  document.getElementById("prn_no").value = prn;
+  document.getElementById("type").value = stuType;
+
+  fetch("load_fees.php?cls=" + encodeURIComponent(cls) + "&type=" + encodeURIComponent(stuType))
+    .then(res => res.json())
+    .then(data => {
+      // Initially show full fees (no receiptAmt yet)
+      renderFees(data);
+
+      // When receipt amount entered → re-render with allocation
+      document.querySelector("input[placeholder='Rct Amount']").addEventListener("input", function(){
+        let val = parseFloat(this.value || 0);
+        renderFees(data, val);
+      });
+    });
+}
 </script>
+
 </body>
 </html>
