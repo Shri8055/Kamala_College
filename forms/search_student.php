@@ -33,20 +33,21 @@ while($row = $res->fetch_assoc()){
     $cat = htmlspecialchars($row['r_stu_castcat']);
     $type = htmlspecialchars($row['type']);
     echo "<tr onclick=\"selectStudent(
-        '{$row['r_id']}',
-        '{$row['prn_no']}', 
-        '{$fullName}', 
-        '{$cls}', 
-        '{$cat}', 
-        '{$type}')\">
-        <td>↳</td>
-        <td>{$row['prn_no']}</td> 
-        <td>{$row['r_id']}</td> 
-        <td>{$fullName}</td> 
-        <td>{$cls}</td> 
-        <td>{$cat}</td> 
-        <td>{$row['r_stu_ph']}</td> 
-        <td>{$type}</td> 
-      </tr>";
+    '{$row['r_id']}',
+    '{$row['prn_no']}', 
+    '{$fullName}', 
+    '{$cls}',   // full class name, not id
+    '{$cat}', 
+    '{$type}')\">
+    <td>↳</td>
+    <td>{$row['prn_no']}</td> 
+    <td>{$row['r_id']}</td> 
+    <td>{$fullName}</td> 
+    <td>{$cls}</td> 
+    <td>{$cat}</td> 
+    <td>{$row['r_stu_ph']}</td> 
+    <td>{$type}</td> 
+  </tr>";
+
 }
 echo "</table>";

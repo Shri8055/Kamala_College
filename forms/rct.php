@@ -10,6 +10,52 @@ if($month >= 6) {
 } else {
     $acadYear = ($year-1) . "-" . $year; // e.g. Jan 2025 → 2024-2025
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['saveReceipt'])) {
+    $stu_id     = intval($_POST['stu_id']);
+    $cls_id     = intval($_POST['cls_id']);
+    $prn        = $_POST['prn_no'];
+    $name       = $_POST['r_stu_name'];
+    $cls        = $_POST['r_stu_str'];
+    $category   = $_POST['r_stu_cat'];
+    $stu_type   = $_POST['type'];
+
+    $receipt_no = $_POST['r_no'] ?? '';
+    $receipt_date = $_POST['r_date'] ?? date('Y-m-d');
+    $acadYear   = $_POST['r_acad_yr'] ?? '';
+    $receiptAmt = floatval($_POST['receipt_amt'] ?? 0);
+    $paymentType= $_POST['payment_type'] ?? 'Cash';
+    $utrNo      = $_POST['utr_no'] ?? '';
+
+    // Fee JSON (build from JS before submit, or reconstruct here)
+    $feeParticulars = $_POST['fee_data'] ?? '[]'; // send via hidden input
+    $feeParticulars = json_decode($feeParticulars, true);
+
+    // Calculate totals
+    $totalFee = array_sum(array_column($feeParticulars, 'amount'));
+    $pending  = $totalFee - $receiptAmt;
+
+    // ✅ Insert into receipts
+    $stmt = $conn->prepare("INSERT INTO receipts 
+        (receipt_no, receipt_date, academic_year, stu_acad_year, student_prn, student_name, student_class, category, fee_type,
+         fee_particulars, total_fee, receipt_amount, pending_fee, payment_type, utr_no) 
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    $jsonFee = json_encode($feeParticulars, JSON_UNESCAPED_UNICODE);
+    $stuAcadYear = $acadYear; // or derive FY/SY/TY
+    $stmt->bind_param("ssssssssssddsss", 
+        $receipt_no, $receipt_date, $acadYear, $stuAcadYear, $prn, $name, $cls, $category, $stu_type,
+        $jsonFee, $totalFee, $receiptAmt, $pending, $paymentType, $utrNo
+    );
+    $stmt->execute();
+
+    // ✅ Update student_subjects (tot_fee, pen_fee)
+    $upd = $conn->prepare("UPDATE student_subjects SET tot_fee=?, pen_fee=? WHERE stu_id=? AND cls_id=?");
+    $upd->bind_param("ddii", $totalFee, $pending, $stu_id, $cls_id);
+    $upd->execute();
+
+    echo "<script>alert('✅ Receipt saved and fees updated successfully!');</script>";
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -19,103 +65,6 @@ if($month >= 6) {
 <title>Kamala College | Fee Receipt</title>
 <link rel="stylesheet" href="../assets/css/rct.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<style>
-.search-box { margin: 0px 0; width: 70%; margin-left: 40px; display: inline-block;}
-.search-results { border: 1px solid #ccc; max-height: 200px; overflow-y: auto; padding: 0px 60px; }
-.search-results table { width: 100%; border-collapse: collapse; }
-.search-results td { padding: 6px; border-bottom: 1px solid #5b5b5b84; cursor: pointer; }
-.search-results tr:hover { background: #f2f2f2; }
-</style>
-<style>
-/* === Fee Section Styling === */
-#feeRows h4 {
-    margin: 5px 0 8px;
-    padding: 6px 10px;
-    background: #0056b3;
-    color: #fff;
-    border-radius: 4px;
-    font-size: 16px;
-} 
-
-.fee-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 8px;
-    border-bottom: 1px solid #36363621;
-}
-
-.fee-item:last-child {
-    border-bottom: none;
-}
-
-.fee-label {
-    font-weight: 500;
-}
-
-.fee-amount {
-    font-weight: bold;
-    color: #333;
-    position: relative;
-    float: right;
-}
-
-.fee-totals {
-    background: #f9f9f9;
-    font-weight: bold;
-}
-
-.fee-grand {
-    background: #d1ffd1;
-    font-weight: bold;
-    font-size: 20px;
-    text-align: center;
-}
-.pen-amt{
-    background: #ffd3d1ff;
-    font-weight: bold;
-    font-size: 20px;
-    text-align: center;
-}
-
-#pendingResult {
-    margin-top: 10px;
-    padding: 8px;
-    border-radius: 5px;
-    background: #fff3cd;
-    color: #856404;
-    border: 1px solid #ffeeba;
-}
-#feeRows table {
-  border: 1px solid #ccc;
-}
-
-#feeRows th, #feeRows td {
-  padding: 0px 10px;
-  text-align: left;
-}
-
-#feeRows input {
-  width: 130px;
-  text-align: right;
-  float: right;
-  padding: 2px;
-  border-radius: 0px;
-}
-#feeRows{
-  width: 70px;
-}
-#feeRows td.pay-cell {
-  width: 120px;
-  text-align: center;
-}
-#feeRows td.pay-cell input {
-  width: 100%;
-  box-sizing: border-box;
-  text-align: right;
-}
-
-</style>
-
 </head>
 <body>
 
@@ -130,10 +79,13 @@ if($month >= 6) {
 <div id="searchResults" class="search-results"></div>
 
 <form id="receiptForm" action="rct.php" method="POST">
+  <input type="hidden" id="stu_id" name="stu_id">
+  <input type="hidden" id="cls_id" name="cls_id">
+
     <table>
         <tr>
             <td style="width: 10%;"><label for="r_no">Receipt No.:</label></td>
-            <td><input id="r_no" name="r_no" type="text" value="1001" style="text-align: center; background-color: #ffd3d1;" required disabled></td>
+            <td><input id="r_no" name="r_no" type="text" value="1001" style="text-align: center; background-color: #ffd3d1;" required readonly></td>
             <td><label for="r_date">Receipt Date:</label></td>
             <td><input id="r_date" name="r_date" type="date"></td>
             <td><label for="r_acad_yr">Academic Year:</label></td>
@@ -160,7 +112,7 @@ if($month >= 6) {
     <table>
         <tr>
             <td style="width: 10%;"><h4>Receipt Amount :</h4></td>
-            <td style="width: 18%;"><input style="width: 90%;" type="text" placeholder="Rct Amount"></td>
+            <td style="width: 18%;"><input style="width: 90%;" name="receipt_amt" type="text" placeholder="Rct Amount"></td>
             <td style="width: 8%;"><label for="">Payment Type :</label></td>
             <td style="width: 13%;"><select name="" id="">
                 <option value="Cash">Cash</option>
@@ -170,8 +122,12 @@ if($month >= 6) {
             </select></td>
             <td style="width: 10%;"><label for="">UTR/DD/RTGS No.:</label></td>
             <td style="width: 25%;"><input type="text"></td>
-            <td><input style="cursor: pointer; background-color: #4fc2ffbc; border: 1px solid black; width: 60%" type="button" value="Save"></td>
-            <td><input style="cursor: pointer; background-color: #98ff6f9f; border: 1px solid black; width: 60%" type="button" value="Print"></td>
+            <td>
+              <button type="submit" name="saveReceipt" 
+                      style="cursor:pointer; background:#4fc2ffbc; border:1px solid black; color: black;width:60%">
+                Save
+              </button>
+            </td>
          </tr>
     </table>
     <table>
@@ -219,35 +175,46 @@ document.getElementById("stuSearch").addEventListener("keyup", function(){
 // Render Fee Tables
 // =====================
 function renderFees(data, receiptAmt = null) {
+  // Add this to top of renderFees function
+  // window.feeCache = [...universityFees, ...collegeFees]; // ✅ update global cache with paid amounts
+
   let feeBody = document.getElementById("feeRows");
   feeBody.innerHTML = "";
 
+  // Group by fee_scope
   let universityFees = data.filter(row => row.fee_scope === "university");
   let collegeFees    = data.filter(row => row.fee_scope === "college");
+
+  // Insert hidden JSON
+  let feeJsonInput = document.querySelector("input[name='fee_data']");
+  if (feeJsonInput) feeJsonInput.remove();
+  document.querySelector("form#receiptForm").insertAdjacentHTML("beforeend", 
+    `<input type="hidden" name="fee_data" value='${JSON.stringify([...universityFees, ...collegeFees])}'>`
+  );
 
   let universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
   let collegeTotal    = collegeFees.reduce((s, f) => s + parseFloat(f.amount), 0);
   let grandTotal      = universityTotal + collegeTotal;
 
-  // ✅ Validation: stop user if entered more than Grand Total
+  // Validation
   if (receiptAmt !== null && receiptAmt > grandTotal) {
     alert("❌ Receipt Amount cannot be greater than Grand Total ("+grandTotal.toFixed(2)+")");
     receiptAmt = grandTotal;
     document.querySelector("input[placeholder='Rct Amount']").value = grandTotal.toFixed(2);
   }
 
-  // ================= Allocation Logic =================
-  let remaining = receiptAmt !== null ? receiptAmt : grandTotal;  // default: show full fee if no receiptAmt
+  // ========== Allocation Logic ==========
+  let remaining = receiptAmt !== null ? receiptAmt : grandTotal;
 
-  // Step 1: Deduct University fees
+  // Pay university fees first
   universityFees.forEach(f => {
     let amt = parseFloat(f.amount);
     let pay = Math.min(amt, remaining);
-    f.paid = (receiptAmt !== null ? pay : amt); // full fee if receiptAmt not given
+    f.paid = (receiptAmt !== null ? pay : amt);
     remaining -= pay;
   });
 
-  // Step 2: Deduct College fees except Tuition Fee
+  // Pay college fees except Tuition Fee
   collegeFees.filter(f => f.sh_nm !== "TF").forEach(f => {
     let amt = parseFloat(f.amount);
     let pay = Math.min(amt, remaining);
@@ -255,7 +222,7 @@ function renderFees(data, receiptAmt = null) {
     remaining -= pay;
   });
 
-  // Step 3: Deduct Tuition Fee
+  // Pay Tuition Fee last
   let tuitionFee = collegeFees.find(f => f.sh_nm === "TF");
   if (tuitionFee) {
     let amt = parseFloat(tuitionFee.amount);
@@ -264,112 +231,91 @@ function renderFees(data, receiptAmt = null) {
     remaining -= pay;
   }
 
-  // Default unpaid = full fee if not touched
+  // Default unpaid = 0 if receipt entered, else full
   [...universityFees, ...collegeFees].forEach(f => {
     if (typeof f.paid === "undefined") f.paid = (receiptAmt !== null ? 0 : parseFloat(f.amount));
   });
+window.feeCache = [...universityFees, ...collegeFees];
+  // ========== Dynamic Table Build ==========
+  function makeTable(title, rows, total) {
+    if (!rows.length) return "";
+    return `
+      <table style="width:100%; border-collapse: collapse;" border="1">
+        <thead>
+          <tr style="background:#0056b3;color:#fff;">
+            <th colspan="3">${title}</th>
+          </tr>
+          <tr style="background:#ddd;">
+            <th>Particular</th>
+            <th>Amount</th>
+            <th>Pay</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${r.fl_nm}</td>
+              <td style="text-align:right;">${parseFloat(r.amount).toFixed(2)}</td>
+              <td class="pay-cell"><input type="number" value="${r.paid.toFixed(2)}"></td>
+            </tr>
+          `).join("")}
+        </tbody>
+        <tfoot>
+          <tr class="fee-totals">
+            <td colspan="2" style="text-align:right;">${title} Total:</td>
+            <td class="pay-cell">₹${total.toFixed(2)}</td>
+          </tr>
+        </tfoot>
+      </table>`;
+  }
 
-  // ================= HTML Tables =================
   let html = `
-  <tr>
-    <td colspan="6">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
-
-        <!-- University Fees -->
-        <table style="width:100%; border-collapse: collapse;" border="1">
-          <thead>
-            <tr style="background:#0056b3;color:#fff;">
-              <th>Particular</th>
-              <th>Amount</th>
-              <th>Pay</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${universityFees.map(uni => `
-              <tr>
-                <td>${uni.fl_nm}</td>
-                <td style="text-align:right;">${parseFloat(uni.amount).toFixed(2)}</td>
-                <td class="pay-cell"><input type="number" value="${uni.paid.toFixed(2)}"></td>
-              </tr>
-            `).join("")}
-          </tbody>
-          <tfoot>
-            <tr class="fee-totals">
-              <td colspan="2" style="text-align:right;">University Fees Total:</td>
-              <td class="pay-cell">₹${universityTotal.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <!-- College Fees -->
-        <table style="width:100%; border-collapse: collapse;" border="1">
-          <thead>
-            <tr style="background:#0056b3;color:#fff;">
-              <th>Particular</th>
-              <th>Amount</th>
-              <th>Pay</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${collegeFees.map(col => `
-              <tr>
-                <td>${col.fl_nm}</td>
-                <td style="text-align:right;">${parseFloat(col.amount).toFixed(2)}</td>
-                <td class="pay-cell"><input type="number" value="${col.paid.toFixed(2)}"></td>
-              </tr>
-            `).join("")}
-          </tbody>
-          <tfoot>
-            <tr class="fee-totals">
-              <td colspan="2" style="text-align:right;">College Fees Total:</td>
-              <td class="pay-cell">₹${collegeTotal.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-      </div>
-    </td>
-  </tr>
-
-  <!-- Grand Total -->
-  <tr class="fee-grand">
-    <td colspan="6">Grand Total : ₹${grandTotal.toFixed(2)}</td>
-  </tr>
-  <!-- Pending -->
-  <tr class="pen-amt">
-    <td colspan="6">Pending Fee: ₹${(grandTotal - (receiptAmt !== null ? receiptAmt : grandTotal)).toFixed(2)}</td>
-  </tr>
-  <!-- Recommended -->
-  <tr style="background:#fff3cd;font-weight:bold;">
-    <td colspan="6" style="background:#6cdefbc5; padding:8px; font-weight:bold; color:#333;">
-      Recommended Payment: <br>
-      ➤ University Fees: ₹${universityTotal.toFixed(2)} <br>
-      ➤ College Fees (without Tuition): ₹${(collegeTotal - (tuitionFee ? tuitionFee.amount : 0)).toFixed(2)} <br>
-      <h3>➤ Total Recommended: ₹${(universityTotal + (collegeTotal - (tuitionFee ? tuitionFee.amount : 0))).toFixed(2)}</h3>
-    </td>
-  </tr>
+    <tr>
+      <td colspan="6">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+          ${makeTable("University Fees", universityFees, universityTotal)}
+          ${makeTable("College Fees", collegeFees, collegeTotal)}
+        </div>
+      </td>
+    </tr>
+    <tr class="fee-grand">
+      <td colspan="6">Grand Total : ₹${grandTotal.toFixed(2)}</td>
+    </tr>
+    <tr class="pen-amt">
+      <td colspan="6">Pending Fee: ₹${(grandTotal - (receiptAmt || grandTotal)).toFixed(2)}</td>
+    </tr>
+    <tr style="background:#6cdefbc5;font-weight:bold;">
+      <td colspan="6" style="padding:8px; color:#333;">
+        Recommended Payment:<br>
+        ➤ University Fees: ₹${universityTotal.toFixed(2)}<br>
+        ➤ College Fees (without Tuition): ₹${(collegeTotal - (tuitionFee ? tuitionFee.amount : 0)).toFixed(2)}<br>
+        <h3>➤ Total Recommended: ₹${(universityTotal + (collegeTotal - (tuitionFee ? tuitionFee.amount : 0))).toFixed(2)}</h3>
+      </td>
+    </tr>
   `;
 
   feeBody.innerHTML = html;
   document.getElementById("fee_tot").value = grandTotal.toFixed(2);
 }
 
+
 // 📌 When row clicked
-function selectStudent(rid, prn, fullname, cls, category, stuType) {
+function selectStudent(stuId, prn, fullname, clsName, category, stuType) {
+  document.getElementById("stu_id").value = stuId;
+  document.getElementById("cls_id").value = clsName; // store class full name
+
   document.getElementById("searchResults").innerHTML = "";
   document.getElementById("r_stu_name").value = fullname;
-  document.getElementById("r_stu_str").value = cls;
+  document.getElementById("r_stu_str").value = clsName;
   document.getElementById("r_stu_cat").value = category;
   document.getElementById("prn_no").value = prn;
   document.getElementById("type").value = stuType;
 
-  fetch("load_fees.php?cls=" + encodeURIComponent(cls) + "&type=" + encodeURIComponent(stuType))
+  fetch("load_fees.php?cls=" + encodeURIComponent(clsName) + "&type=" + encodeURIComponent(stuType))
     .then(res => res.json())
     .then(data => {
-      // Initially show full fees (no receiptAmt yet)
       renderFees(data);
 
-      // When receipt amount entered → re-render with allocation
       document.querySelector("input[placeholder='Rct Amount']").addEventListener("input", function(){
         let val = parseFloat(this.value || 0);
         renderFees(data, val);
@@ -377,6 +323,57 @@ function selectStudent(rid, prn, fullname, cls, category, stuType) {
     });
 }
 </script>
+<script>
+  document.getElementById("receiptForm").addEventListener("submit", function(e){
+  if(!document.getElementById("stu_id").value){
+    e.preventDefault();
+    alert("⚠️ Please select a student first!");
+    return false;
+  }
+  if(!document.querySelector("input[placeholder='Rct Amount']").value){
+    e.preventDefault();
+    alert("⚠️ Please enter Receipt Amount!");
+    return false;
+  }
+});
+</script>
+<script>
+document.getElementById("receiptForm").addEventListener("submit", function(e) {
+    // collect all fee rows
+    let rows = [...document.querySelectorAll("#feeRows table tbody tr")];
+    let fees = [];
 
+    rows.forEach(row => {
+        let cells = row.querySelectorAll("td");
+        if (cells.length >= 3) {
+            let feeName = cells[0].innerText.trim();
+            let amount  = parseFloat(cells[1].innerText.trim()) || 0;
+            let paid    = parseFloat(cells[2].querySelector("input").value) || 0;
+
+            // find matching JSON object from original fee_data
+            let original = (window.feeCache || []).find(f => f.fl_nm === feeName && parseFloat(f.amount) === amount);
+
+            fees.push({
+                fee_id: original ? original.fee_id : null,
+                fee_scope: original ? original.fee_scope : "college",
+                sh_nm: original ? original.sh_nm : "",
+                fl_nm: feeName,
+                amount: amount,
+                paid: paid
+            });
+        }
+    });
+
+    // update hidden field before submit
+    let hidden = document.querySelector("input[name='fee_data']");
+    if (!hidden) {
+        hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "fee_data";
+        this.appendChild(hidden);
+    }
+    hidden.value = JSON.stringify(fees);
+});
+</script>
 </body>
 </html>
