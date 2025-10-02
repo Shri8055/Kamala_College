@@ -90,7 +90,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['saveReceipt'])) {
             <td><input id="r_date" name="r_date" type="date"></td>
             <td><label for="r_acad_yr">Academic Year:</label></td>
             <td><input type="text" id="r_acad_yr" name="r_acad_yr" value="<?php echo $acadYear; ?>" readonly></td>
-            <td colspan="2"><button>CALCULATOR</button></td>
+            <td colspan="2">
+              <button style="padding:6px 12px; background:#0056b3; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-left: 40%;" type="button" id="calcBtn">CALCULATOR</button>
+
+
+              <!-- Calculator popup -->
+              <div id="calculatorPopup" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; padding:10px; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.2); z-index:1000;">
+                <input type="text" id="calcDisplay" readonly style="width:100%; padding:8px; margin-bottom:8px; font-size:1.2em; text-align:right; border:1px solid #ccc; border-radius:4px;">
+                <!-- <img src="../assets/calclogo.png" style="display: flex; background-size: cover; background-position: center; margin: auto;"> -->
+                
+                <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:5px; ">
+                  <button class="calcBtn" type="button">7</button>
+                  <button class="calcBtn" type="button">8</button>
+                  <button class="calcBtn" type="button">9</button>
+                  <button class="calcBtn" type="button">/</button>
+
+                  <button class="calcBtn" type="button">4</button>
+                  <button class="calcBtn" type="button">5</button>
+                  <button class="calcBtn" type="button">6</button>
+                  <button class="calcBtn" type="button">*</button>
+
+                  <button class="calcBtn" type="button">1</button>
+                  <button class="calcBtn" type="button">2</button>
+                  <button class="calcBtn" type="button">3</button>
+                  <button class="calcBtn" type="button">-</button>
+
+                  <button class="calcBtn" type="button">0</button>
+                  <button class="calcBtn" type="button">.</button>
+                  <button class="calcBtn" type="button">C</button>
+                  <button class="calcBtn" type="button">+</button>
+
+                  <button class="calcBtn" style="grid-column: span 4; background:#28a745; color:#fff;">=</button>
+                </div>
+              </div>
+            </td>
         </tr>
         <tr>
             <td><label for="r_stu_str">Class:</label></td>
@@ -175,9 +208,6 @@ document.getElementById("stuSearch").addEventListener("keyup", function(){
 // Render Fee Tables
 // =====================
 function renderFees(data, receiptAmt = null) {
-  // Add this to top of renderFees function
-  // window.feeCache = [...universityFees, ...collegeFees]; // ✅ update global cache with paid amounts
-
   let feeBody = document.getElementById("feeRows");
   feeBody.innerHTML = "";
 
@@ -185,57 +215,52 @@ function renderFees(data, receiptAmt = null) {
   let universityFees = data.filter(row => row.fee_scope === "university");
   let collegeFees    = data.filter(row => row.fee_scope === "college");
 
-  // Insert hidden JSON
-  let feeJsonInput = document.querySelector("input[name='fee_data']");
-  if (feeJsonInput) feeJsonInput.remove();
-  document.querySelector("form#receiptForm").insertAdjacentHTML("beforeend", 
-    `<input type="hidden" name="fee_data" value='${JSON.stringify([...universityFees, ...collegeFees])}'>`
-  );
-
+  // Use actual pending values from JSON
   let universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
   let collegeTotal    = collegeFees.reduce((s, f) => s + parseFloat(f.amount), 0);
   let grandTotal      = universityTotal + collegeTotal;
 
-  // Validation
+  // ===== Validation: Check for overpayment =====
   if (receiptAmt !== null && receiptAmt > grandTotal) {
-    alert("❌ Receipt Amount cannot be greater than Grand Total ("+grandTotal.toFixed(2)+")");
+    alert("❌ Receipt Amount cannot be greater than Grand Total (" + grandTotal.toFixed(2) + ")");
     receiptAmt = grandTotal;
-    document.querySelector("input[placeholder='Rct Amount']").value = grandTotal.toFixed(2);
+
+    // Update receipt amount input immediately
+    let receiptInput = document.querySelector("input[placeholder='Rct Amount']");
+    if (receiptInput) receiptInput.value = grandTotal.toFixed(2);
   }
 
-  // ========== Allocation Logic ==========
-  let remaining = receiptAmt !== null ? receiptAmt : grandTotal;
+  // When cashier types receipt amount, allocate payments
+  if (receiptAmt !== null) {
+    let remaining = receiptAmt;
 
-  // Pay university fees first
-  universityFees.forEach(f => {
-    let amt = parseFloat(f.amount);
-    let pay = Math.min(amt, remaining);
-    f.paid = (receiptAmt !== null ? pay : amt);
-    remaining -= pay;
-  });
+    universityFees.forEach(f => {
+      let amt = parseFloat(f.amount);
+      let pay = Math.min(amt, remaining);
+      f.paid = pay;
+      remaining -= pay;
+    });
 
-  // Pay college fees except Tuition Fee
-  collegeFees.filter(f => f.sh_nm !== "TF").forEach(f => {
-    let amt = parseFloat(f.amount);
-    let pay = Math.min(amt, remaining);
-    f.paid = (receiptAmt !== null ? pay : amt);
-    remaining -= pay;
-  });
+    collegeFees.filter(f => f.sh_nm !== "TF").forEach(f => {
+      let amt = parseFloat(f.amount);
+      let pay = Math.min(amt, remaining);
+      f.paid = pay;
+      remaining -= pay;
+    });
 
-  // Pay Tuition Fee last
-  let tuitionFee = collegeFees.find(f => f.sh_nm === "TF");
-  if (tuitionFee) {
-    let amt = parseFloat(tuitionFee.amount);
-    let pay = Math.min(amt, remaining);
-    tuitionFee.paid = (receiptAmt !== null ? pay : amt);
-    remaining -= pay;
+    let tuitionFee = collegeFees.find(f => f.sh_nm === "TF");
+    if (tuitionFee) {
+      let amt = parseFloat(tuitionFee.amount);
+      let pay = Math.min(amt, remaining);
+      tuitionFee.paid = pay;
+      remaining -= pay;
+    }
+  } else {
+    // if no receipt amount, default paid = 0
+    [...universityFees, ...collegeFees].forEach(f => f.paid = 0);
   }
 
-  // Default unpaid = 0 if receipt entered, else full
-  [...universityFees, ...collegeFees].forEach(f => {
-    if (typeof f.paid === "undefined") f.paid = (receiptAmt !== null ? 0 : parseFloat(f.amount));
-  });
-window.feeCache = [...universityFees, ...collegeFees];
+  window.feeCache = [...universityFees, ...collegeFees];
   // ========== Dynamic Table Build ==========
   function makeTable(title, rows, total) {
     if (!rows.length) return "";
@@ -268,31 +293,36 @@ window.feeCache = [...universityFees, ...collegeFees];
         </tfoot>
       </table>`;
   }
+let recommendedUni  = universityFees.reduce((s, f) => s + (parseFloat(f.amount) > 0 ? parseFloat(f.amount) : 0), 0);
+let recommendedColl = collegeFees.filter(f => f.sh_nm !== "TF")
+                                 .reduce((s, f) => s + (parseFloat(f.amount) > 0 ? parseFloat(f.amount) : 0), 0);
 
-  let html = `
-    <tr>
-      <td colspan="6">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
-          ${makeTable("University Fees", universityFees, universityTotal)}
-          ${makeTable("College Fees", collegeFees, collegeTotal)}
-        </div>
-      </td>
-    </tr>
-    <tr class="fee-grand">
-      <td colspan="6">Grand Total : ₹${grandTotal.toFixed(2)}</td>
-    </tr>
-    <tr class="pen-amt">
-      <td colspan="6">Pending Fee: ₹${(grandTotal - (receiptAmt || grandTotal)).toFixed(2)}</td>
-    </tr>
-    <tr style="background:#6cdefbc5;font-weight:bold;">
-      <td colspan="6" style="padding:8px; color:#333;">
-        Recommended Payment:<br>
-        ➤ University Fees: ₹${universityTotal.toFixed(2)}<br>
-        ➤ College Fees (without Tuition): ₹${(collegeTotal - (tuitionFee ? tuitionFee.amount : 0)).toFixed(2)}<br>
-        <h3>➤ Total Recommended: ₹${(universityTotal + (collegeTotal - (tuitionFee ? tuitionFee.amount : 0))).toFixed(2)}</h3>
-      </td>
-    </tr>
-  `;
+let recommendedTotal = recommendedUni + recommendedColl;
+let html = `
+  <tr>
+    <td colspan="6">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+        ${makeTable("University Fees", universityFees, universityTotal)}
+        ${makeTable("College Fees", collegeFees, collegeTotal)}
+      </div>
+    </td>
+  </tr>
+  <tr class="fee-grand">
+    <td colspan="6">Grand Total Pending : ₹${grandTotal.toFixed(2)}</td>
+  </tr>
+  <tr class="pen-amt">
+    <td colspan="6">Pending Fee: ₹${(grandTotal - (receiptAmt || 0)).toFixed(2)}</td>
+  </tr>
+  <tr style="background:#6cdefbc5;font-weight:bold;">
+    <td colspan="6" style="padding:8px; color:#333;">
+      Recommended Payment:<br>
+      ➤ University Fees: ₹${recommendedUni.toFixed(2)}<br>
+      ➤ College Fees (without Tuition): ₹${recommendedColl.toFixed(2)}<br>
+      <h3>➤ Total Recommended: ₹${recommendedTotal.toFixed(2)}</h3>
+    </td>
+  </tr>
+`;
+
 
   feeBody.innerHTML = html;
   document.getElementById("fee_tot").value = grandTotal.toFixed(2);
@@ -311,7 +341,7 @@ function selectStudent(stuId, prn, fullname, clsName, category, stuType) {
   document.getElementById("prn_no").value = prn;
   document.getElementById("type").value = stuType;
 
-  fetch("load_fees.php?cls=" + encodeURIComponent(clsName) + "&type=" + encodeURIComponent(stuType))
+  fetch("load_fees.php?cls=" + encodeURIComponent(clsName) + "&type=" + encodeURIComponent(stuType) + "&prn=" + encodeURIComponent(prn))
     .then(res => res.json())
     .then(data => {
       renderFees(data);
@@ -374,6 +404,73 @@ document.getElementById("receiptForm").addEventListener("submit", function(e) {
     }
     hidden.value = JSON.stringify(fees);
 });
+</script>
+
+<script>
+  const calcBtn = document.getElementById("calcBtn");
+const calculatorPopup = document.getElementById("calculatorPopup");
+const calcDisplay = document.getElementById("calcDisplay");
+
+let calcValue = "";
+
+calcBtn.addEventListener("click", function(e) {
+  e.stopPropagation();
+  calculatorPopup.style.display = "block";
+
+  // Position popup near button
+  const rect = calcBtn.getBoundingClientRect();
+  calculatorPopup.style.top = rect.bottom + window.scrollY + "px";
+  calculatorPopup.style.left = rect.left + window.scrollX + "px";
+});
+
+// Close calculator if clicked outside
+document.addEventListener("click", function(e) {
+  if (!calculatorPopup.contains(e.target) && e.target !== calcBtn) {
+    calculatorPopup.style.display = "none";
+  }
+});
+
+// Calculator button clicks
+calculatorPopup.querySelectorAll(".calcBtn").forEach(btn => {
+  btn.addEventListener("click", function() {
+    const val = this.innerText;
+
+    if (val === "C") {
+      calcValue = "";
+    } else if (val === "=") {
+      try {
+        calcValue = eval(calcValue).toString();
+      } catch {
+        calcValue = "Error";
+      }
+    } else {
+      calcValue += val;
+    }
+
+    calcDisplay.value = calcValue;
+  });
+});
+
+// Keyboard support
+document.addEventListener("keydown", function(e) {
+  if (calculatorPopup.style.display === "block") {
+    if ("0123456789+-*/.".includes(e.key)) {
+      calcValue += e.key;
+    } else if (e.key === "Enter") {
+      try {
+        calcValue = eval(calcValue).toString();
+      } catch {
+        calcValue = "Error";
+      }
+    } else if (e.key === "Backspace") {
+      calcValue = calcValue.slice(0, -1);
+    } else if (e.key.toLowerCase() === "c" || e.key === "Escape") {
+      calcValue = "";
+    }
+    calcDisplay.value = calcValue;
+  }
+});
+
 </script>
 </body>
 </html>

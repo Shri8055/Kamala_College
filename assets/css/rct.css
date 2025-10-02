@@ -235,3 +235,16 @@ button.next-btn:hover {
 .search-results table { width: 100%; border-collapse: collapse; }
 .search-results td { padding: 6px; border-bottom: 1px solid #5b5b5b84; cursor: pointer; }
 .search-results tr:hover { background: #f2f2f2; }
+
+
+#calculatorPopup button {
+  padding:10px;
+  font-size:1em;
+  border:none;
+  background:#f1f1f1;
+  border-radius:4px;
+  cursor:pointer;
+}
+#calculatorPopup button:hover {
+  background:#ddd;
+}

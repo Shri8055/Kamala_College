@@ -625,3 +625,547 @@ document.getElementById("receiptForm").addEventListener("submit", function(e) {
 
 </body>
 </html>
+
+
+load_fees.php
+<?php
+header('Content-Type: application/json');
+include '../includes/db.php';
+
+$clsFull = $_GET['cls'] ?? '';
+$stuType = $_GET['type'] ?? '';
+$stuId   = $_GET['stu_id'] ?? '';
+
+if (!$clsFull || !$stuType) exit;
+
+// Split class name (eg: "BACHELOR OF COMMERCE - F.Y.")
+$clsFull = preg_replace('/\s+/', ' ', $clsFull);
+$parts   = array_map('trim', explode('-', $clsFull));
+$clsLeft = $parts[0] ?? '';
+$termRight = $parts[1] ?? '';
+
+// Find term_id
+$stmt = $conn->prepare("SELECT cls_id, term_id FROM feecls WHERE cls_ful_nm=? AND term_title=? LIMIT 1");
+$stmt->bind_param("ss", $clsLeft, $termRight);
+$stmt->execute();
+$res = $stmt->get_result()->fetch_assoc();
+$cls_id  = $res['cls_id'] ?? 0;
+$term_id = $res['term_id'] ?? 0;
+
+if ($term_id > 0) {
+    $fees = [];
+
+    // 1. Get fee structure
+    $feeQ = $conn->prepare("SELECT fee_id, fee_scope, sh_nm, fl_nm, amount 
+                             FROM feestru 
+                             WHERE term_id=? AND type=? AND fl_nm <> 'Total'
+                             ORDER BY fee_id ASC");
+    $feeQ->bind_param("is", $term_id, $stuType);
+    $feeQ->execute();
+    $feeRes = $feeQ->get_result();
+
+    while ($f = $feeRes->fetch_assoc()) {
+        $f['amount'] = (float)$f['amount'];
+        $f['paid_so_far'] = 0.0; // will update from receipts
+        $fees[$f['fee_id']] = $f;
+    }
+
+    // 2. Parse receipts JSON to calculate already paid
+    if ($stuId && count($fees)) {
+        $stmt2 = $conn->prepare("SELECT fee_particulars FROM receipts WHERE student_prn=?");
+        $stmt2->bind_param("s", $stuId);
+        $stmt2->execute();
+        $res2 = $stmt2->get_result();
+
+        while ($row = $res2->fetch_assoc()) {
+            $feeParticulars = json_decode($row['fee_particulars'], true);
+            if (is_array($feeParticulars)) {
+                foreach ($feeParticulars as $p) {
+                    $fid  = $p['fee_id'] ?? null;
+                    $paid = $p['paid'] ?? 0;
+                    if ($fid && isset($fees[$fid])) {
+                        $fees[$fid]['paid_so_far'] += (float)$paid;
+                    }
+                }
+            }
+        }
+    }
+
+    echo json_encode(array_values($fees));
+}
+?>
+
+load_fees.php
+<?php
+header('Content-Type: application/json');
+include '../includes/db.php';
+
+$clsFull = $_GET['cls'] ?? '';
+$stuType = $_GET['type'] ?? '';
+
+if(!$clsFull || !$stuType) exit;
+
+// Split class (Example: "BACHELOR OF COMMERCE - F.Y.")
+$clsFull = preg_replace('/\s+/', ' ', $clsFull); // collapse spaces
+$parts = array_map('trim', explode('-', $clsFull));
+$clsLeft = $parts[0] ?? '';
+$termRight = $parts[1] ?? '';
+
+// Find term_id and cls_id
+$stmt = $conn->prepare("SELECT cls_id, term_id FROM feecls WHERE cls_ful_nm=? AND term_title=? LIMIT 1");
+$stmt->bind_param("ss", $clsLeft, $termRight);
+$stmt->execute();
+$res = $stmt->get_result()->fetch_assoc();
+$term_id = $res['term_id'] ?? 0;
+
+if($term_id > 0){
+    $fees = [];
+    $feeQ = $conn->prepare("SELECT fee_id, fee_scope, sh_nm, fl_nm, amount 
+                            FROM feestru 
+                            WHERE term_id=? AND type=? AND fl_nm <> 'Total' 
+                            ORDER BY fee_id ASC");
+    $feeQ->bind_param("is", $term_id, $stuType);
+    $feeQ->execute();
+    $feeRes = $feeQ->get_result();
+    while($f = $feeRes->fetch_assoc()){
+        $fees[] = $f;
+    }
+    echo json_encode($fees);
+}
+?>
+
+rct.php
+<?php
+include_once('../includes/header.php');
+include '../includes/db.php';
+
+// Calculate academic year dynamically
+$year = date("Y");
+$month = date("n");
+if($month >= 6) {
+    $acadYear = $year . "-" . ($year+1); // e.g. June 2025 → 2025-2026
+} else {
+    $acadYear = ($year-1) . "-" . $year; // e.g. Jan 2025 → 2024-2025
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['saveReceipt'])) {
+    $stu_id     = intval($_POST['stu_id']);
+    $cls_id     = intval($_POST['cls_id']);
+    $prn        = $_POST['prn_no'];
+    $name       = $_POST['r_stu_name'];
+    $cls        = $_POST['r_stu_str'];
+    $category   = $_POST['r_stu_cat'];
+    $stu_type   = $_POST['type'];
+
+    $receipt_no = $_POST['r_no'] ?? '';
+    $receipt_date = $_POST['r_date'] ?? date('Y-m-d');
+    $acadYear   = $_POST['r_acad_yr'] ?? '';
+    $receiptAmt = floatval($_POST['receipt_amt'] ?? 0);
+    $paymentType= $_POST['payment_type'] ?? 'Cash';
+    $utrNo      = $_POST['utr_no'] ?? '';
+
+    // Fee JSON (build from JS before submit, or reconstruct here)
+    $feeParticulars = $_POST['fee_data'] ?? '[]'; // send via hidden input
+    $feeParticulars = json_decode($feeParticulars, true);
+
+    // Calculate totals
+    $totalFee = array_sum(array_column($feeParticulars, 'amount'));
+    $pending  = $totalFee - $receiptAmt;
+
+    // ✅ Insert into receipts
+    $stmt = $conn->prepare("INSERT INTO receipts 
+        (receipt_no, receipt_date, academic_year, stu_acad_year, student_prn, student_name, student_class, category, fee_type,
+         fee_particulars, total_fee, receipt_amount, pending_fee, payment_type, utr_no) 
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+    $jsonFee = json_encode($feeParticulars, JSON_UNESCAPED_UNICODE);
+    $stuAcadYear = $acadYear; // or derive FY/SY/TY
+    $stmt->bind_param("ssssssssssddsss", 
+        $receipt_no, $receipt_date, $acadYear, $stuAcadYear, $prn, $name, $cls, $category, $stu_type,
+        $jsonFee, $totalFee, $receiptAmt, $pending, $paymentType, $utrNo
+    );
+    $stmt->execute();
+
+    // ✅ Update student_subjects (tot_fee, pen_fee)
+    $upd = $conn->prepare("UPDATE student_subjects SET tot_fee=?, pen_fee=? WHERE stu_id=? AND cls_id=?");
+    $upd->bind_param("ddii", $totalFee, $pending, $stu_id, $cls_id);
+    $upd->execute();
+
+    echo "<script>alert('✅ Receipt saved and fees updated successfully!');</script>";
+}
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kamala College | Fee Receipt</title>
+<link rel="stylesheet" href="../assets/css/rct.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<h3 style="text-align: center; margin-top: 10px;">Fee Receipt</h3>
+
+<!-- 🔍 Search Box -->
+<div class="search-box" style="display: flex; align-items: center; gap: 10px;">
+  <label for="stuSearch" style="padding-top: 5px;">Search Student:</label>
+  <input type="text" id="stuSearch" placeholder="Search by PRN, R-ID, Phone, Name..." style="width: 500px; padding: 5px;">
+</div>
+
+<div id="searchResults" class="search-results"></div>
+
+<form id="receiptForm" action="rct.php" method="POST">
+  <input type="hidden" id="stu_id" name="stu_id">
+  <input type="hidden" id="cls_id" name="cls_id">
+
+    <table>
+        <tr>
+            <td style="width: 10%;"><label for="r_no">Receipt No.:</label></td>
+            <td><input id="r_no" name="r_no" type="text" value="1001" style="text-align: center; background-color: #ffd3d1;" required readonly></td>
+            <td><label for="r_date">Receipt Date:</label></td>
+            <td><input id="r_date" name="r_date" type="date"></td>
+            <td><label for="r_acad_yr">Academic Year:</label></td>
+            <td><input type="text" id="r_acad_yr" name="r_acad_yr" value="<?php echo $acadYear; ?>" readonly></td>
+            <td colspan="2"><button>CALCULATOR</button></td>
+        </tr>
+        <tr>
+            <td><label for="r_stu_str">Class:</label></td>
+            <td colspan="3"><input style="width: 96%;" type="text" id="r_stu_str" name="r_stu_str" readonly></td>
+            <td><label for="prn_no">PRN No:</label></td>
+            <td><input type="text" id="prn_no" name="prn_no" readonly></td>
+            <td><label for="type">Fee type:</label></td>
+            <td><input type="text" id="type" name="type" readonly></td>
+        </tr>
+        <tr>
+            <td><label for="r_stu_name">Student Name:</label></td>
+            <td colspan="3"><input style="width: 96%;" id="r_stu_name" name="r_stu_name" type="text" readonly></td>
+            <td></td>
+            <td></td>
+            <td><label for="r_stu_cat">Category:</label></td>
+            <td><input type="text" id="r_stu_cat" name="r_stu_cat" readonly></td>
+        </tr>
+    </table><hr style="width: 80%; margin: 10px auto; border-radius: 60%;">
+    <table>
+        <tr>
+            <td style="width: 10%;"><h4>Receipt Amount :</h4></td>
+            <td style="width: 18%;"><input style="width: 90%;" name="receipt_amt" type="text" placeholder="Rct Amount"></td>
+            <td style="width: 8%;"><label for="">Payment Type :</label></td>
+            <td style="width: 13%;"><select name="" id="">
+                <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="DD">DD</option>
+                <option value="NEFT / RTGS">NEFT / RTGS</option>
+            </select></td>
+            <td style="width: 10%;"><label for="">UTR/DD/RTGS No.:</label></td>
+            <td style="width: 25%;"><input type="text"></td>
+            <td>
+              <button type="submit" name="saveReceipt" 
+                      style="cursor:pointer; background:#4fc2ffbc; border:1px solid black; color: black;width:60%">
+                Save
+              </button>
+            </td>
+         </tr>
+    </table>
+    <table>
+        <!-- Fee Particulars will load here -->
+         
+        <tbody id="feeRows" style="width: 100%;"></tbody>
+
+        <tr>
+            <td><input style="background-color: #a0ff7a04; text-align: right;" type="hidden" id="fee_tot" name="fee_tot" readonly></td>
+        </tr>
+        
+    </table>
+</form>
+
+<script>
+// 📌 Set today's date by default
+const today = new Date().toISOString().split("T")[0];
+const rDate = document.getElementById("r_date");
+rDate.value = today;
+
+// ❌ Prevent back-date or future-date
+rDate.addEventListener("change", function() {
+    if (this.value !== today) {
+        alert("You cannot change the date. Resetting to today's date.");
+        this.value = today;
+    }
+});
+
+// 🔍 Live Search
+document.getElementById("stuSearch").addEventListener("keyup", function(){
+    let query = this.value.trim();
+    if(query.length < 2) {
+        document.getElementById("searchResults").innerHTML = "";
+        return;
+    }
+
+    fetch("search_student.php?q=" + encodeURIComponent(query))
+        .then(res => res.text())
+        .then(data => {
+            document.getElementById("searchResults").innerHTML = data;
+        });
+});
+
+// =====================
+// Render Fee Tables
+// =====================
+function renderFees(data, receiptAmt = null) {
+  // Add this to top of renderFees function
+  // window.feeCache = [...universityFees, ...collegeFees]; // ✅ update global cache with paid amounts
+
+  let feeBody = document.getElementById("feeRows");
+  feeBody.innerHTML = "";
+
+  // Group by fee_scope
+  let universityFees = data.filter(row => row.fee_scope === "university");
+  let collegeFees    = data.filter(row => row.fee_scope === "college");
+
+  // Insert hidden JSON
+  let feeJsonInput = document.querySelector("input[name='fee_data']");
+  if (feeJsonInput) feeJsonInput.remove();
+  document.querySelector("form#receiptForm").insertAdjacentHTML("beforeend", 
+    `<input type="hidden" name="fee_data" value='${JSON.stringify([...universityFees, ...collegeFees])}'>`
+  );
+
+  let universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+  let collegeTotal    = collegeFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+  let grandTotal      = universityTotal + collegeTotal;
+
+  // Validation
+  if (receiptAmt !== null && receiptAmt > grandTotal) {
+    alert("❌ Receipt Amount cannot be greater than Grand Total ("+grandTotal.toFixed(2)+")");
+    receiptAmt = grandTotal;
+    document.querySelector("input[placeholder='Rct Amount']").value = grandTotal.toFixed(2);
+  }
+
+  // ========== Allocation Logic ==========
+  let remaining = receiptAmt !== null ? receiptAmt : grandTotal;
+
+  // Pay university fees first
+  universityFees.forEach(f => {
+    let amt = parseFloat(f.amount);
+    let pay = Math.min(amt, remaining);
+    f.paid = (receiptAmt !== null ? pay : amt);
+    remaining -= pay;
+  });
+
+  // Pay college fees except Tuition Fee
+  collegeFees.filter(f => f.sh_nm !== "TF").forEach(f => {
+    let amt = parseFloat(f.amount);
+    let pay = Math.min(amt, remaining);
+    f.paid = (receiptAmt !== null ? pay : amt);
+    remaining -= pay;
+  });
+
+  // Pay Tuition Fee last
+  let tuitionFee = collegeFees.find(f => f.sh_nm === "TF");
+  if (tuitionFee) {
+    let amt = parseFloat(tuitionFee.amount);
+    let pay = Math.min(amt, remaining);
+    tuitionFee.paid = (receiptAmt !== null ? pay : amt);
+    remaining -= pay;
+  }
+
+  // Default unpaid = 0 if receipt entered, else full
+  [...universityFees, ...collegeFees].forEach(f => {
+    if (typeof f.paid === "undefined") f.paid = (receiptAmt !== null ? 0 : parseFloat(f.amount));
+  });
+window.feeCache = [...universityFees, ...collegeFees];
+  // ========== Dynamic Table Build ==========
+  function makeTable(title, rows, total) {
+    if (!rows.length) return "";
+    return `
+      <table style="width:100%; border-collapse: collapse;" border="1">
+        <thead>
+          <tr style="background:#0056b3;color:#fff;">
+            <th colspan="3">${title}</th>
+          </tr>
+          <tr style="background:#ddd;">
+            <th>Particular</th>
+            <th>Amount</th>
+            <th>Pay</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td>${r.fl_nm}</td>
+              <td style="text-align:right;">${parseFloat(r.amount).toFixed(2)}</td>
+              <td class="pay-cell"><input type="number" value="${r.paid.toFixed(2)}"></td>
+            </tr>
+          `).join("")}
+        </tbody>
+        <tfoot>
+          <tr class="fee-totals">
+            <td colspan="2" style="text-align:right;">${title} Total:</td>
+            <td class="pay-cell">₹${total.toFixed(2)}</td>
+          </tr>
+        </tfoot>
+      </table>`;
+  }
+
+  let html = `
+    <tr>
+      <td colspan="6">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+          ${makeTable("University Fees", universityFees, universityTotal)}
+          ${makeTable("College Fees", collegeFees, collegeTotal)}
+        </div>
+      </td>
+    </tr>
+    <tr class="fee-grand">
+      <td colspan="6">Grand Total : ₹${grandTotal.toFixed(2)}</td>
+    </tr>
+    <tr class="pen-amt">
+      <td colspan="6">Pending Fee: ₹${(grandTotal - (receiptAmt || grandTotal)).toFixed(2)}</td>
+    </tr>
+    <tr style="background:#6cdefbc5;font-weight:bold;">
+      <td colspan="6" style="padding:8px; color:#333;">
+        Recommended Payment:<br>
+        ➤ University Fees: ₹${universityTotal.toFixed(2)}<br>
+        ➤ College Fees (without Tuition): ₹${(collegeTotal - (tuitionFee ? tuitionFee.amount : 0)).toFixed(2)}<br>
+        <h3>➤ Total Recommended: ₹${(universityTotal + (collegeTotal - (tuitionFee ? tuitionFee.amount : 0))).toFixed(2)}</h3>
+      </td>
+    </tr>
+  `;
+
+  feeBody.innerHTML = html;
+  document.getElementById("fee_tot").value = grandTotal.toFixed(2);
+}
+
+
+// 📌 When row clicked
+function selectStudent(stuId, prn, fullname, clsName, category, stuType) {
+  document.getElementById("stu_id").value = stuId;
+  document.getElementById("cls_id").value = clsName; // store class full name
+
+  document.getElementById("searchResults").innerHTML = "";
+  document.getElementById("r_stu_name").value = fullname;
+  document.getElementById("r_stu_str").value = clsName;
+  document.getElementById("r_stu_cat").value = category;
+  document.getElementById("prn_no").value = prn;
+  document.getElementById("type").value = stuType;
+
+  fetch("load_fees.php?cls=" + encodeURIComponent(clsName) + "&type=" + encodeURIComponent(stuType))
+    .then(res => res.json())
+    .then(data => {
+      renderFees(data);
+
+      document.querySelector("input[placeholder='Rct Amount']").addEventListener("input", function(){
+        let val = parseFloat(this.value || 0);
+        renderFees(data, val);
+      });
+    });
+}
+</script>
+<script>
+  document.getElementById("receiptForm").addEventListener("submit", function(e){
+  if(!document.getElementById("stu_id").value){
+    e.preventDefault();
+    alert("⚠️ Please select a student first!");
+    return false;
+  }
+  if(!document.querySelector("input[placeholder='Rct Amount']").value){
+    e.preventDefault();
+    alert("⚠️ Please enter Receipt Amount!");
+    return false;
+  }
+});
+</script>
+<script>
+document.getElementById("receiptForm").addEventListener("submit", function(e) {
+    // collect all fee rows
+    let rows = [...document.querySelectorAll("#feeRows table tbody tr")];
+    let fees = [];
+
+    rows.forEach(row => {
+        let cells = row.querySelectorAll("td");
+        if (cells.length >= 3) {
+            let feeName = cells[0].innerText.trim();
+            let amount  = parseFloat(cells[1].innerText.trim()) || 0;
+            let paid    = parseFloat(cells[2].querySelector("input").value) || 0;
+
+            // find matching JSON object from original fee_data
+            let original = (window.feeCache || []).find(f => f.fl_nm === feeName && parseFloat(f.amount) === amount);
+
+            fees.push({
+                fee_id: original ? original.fee_id : null,
+                fee_scope: original ? original.fee_scope : "college",
+                sh_nm: original ? original.sh_nm : "",
+                fl_nm: feeName,
+                amount: amount,
+                paid: paid
+            });
+        }
+    });
+
+    // update hidden field before submit
+    let hidden = document.querySelector("input[name='fee_data']");
+    if (!hidden) {
+        hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "fee_data";
+        this.appendChild(hidden);
+    }
+    hidden.value = JSON.stringify(fees);
+});
+</script>
+</body>
+</html>
+
+search_student.php
+<?php
+include '../includes/db.php';
+$q = $_GET['q'] ?? '';
+
+if(strlen($q) < 2) exit;
+
+$stmt = $conn->prepare("SELECT r_id, prn_no, r_stu_name, r_stu_father, r_stu_sur, 
+                               r_stu_admi_cls, r_stu_castcat, r_stu_ph, type
+                        FROM admts 
+                        WHERE r_id LIKE ? OR prn_no LIKE ? OR r_stu_name LIKE ? OR r_stu_ph LIKE ?
+                        LIMIT 10");
+$like = "%$q%";
+$stmt->bind_param("ssss", $like, $like, $like, $like);
+$stmt->execute();
+$res = $stmt->get_result();
+
+echo "<table>";
+echo "
+      <tr>
+        <td></td>
+        <td>PRN No</td>
+        <td>R-ID</td>
+        <td>Full Name</td>
+        <td>Class</td>
+        <td>Category</td>
+        <td>Ph-No</td>
+        <td>Fee type</td>
+      </tr>
+";
+while($row = $res->fetch_assoc()){
+    $fullName = htmlspecialchars($row['r_stu_name'] . " " . $row['r_stu_father'] . "" . $row['r_stu_sur']);
+    $cls = htmlspecialchars($row['r_stu_admi_cls']);
+    $cat = htmlspecialchars($row['r_stu_castcat']);
+    $type = htmlspecialchars($row['type']);
+    echo "<tr onclick=\"selectStudent(
+    '{$row['r_id']}',
+    '{$row['prn_no']}', 
+    '{$fullName}', 
+    '{$cls}',   // full class name, not id
+    '{$cat}', 
+    '{$type}')\">
+    <td>↳</td>
+    <td>{$row['prn_no']}</td> 
+    <td>{$row['r_id']}</td> 
+    <td>{$fullName}</td> 
+    <td>{$cls}</td> 
+    <td>{$cat}</td> 
+    <td>{$row['r_stu_ph']}</td> 
+    <td>{$type}</td> 
+  </tr>";
+
+}
+echo "</table>";
