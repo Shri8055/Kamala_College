@@ -31,16 +31,16 @@ if($prn){
                 "fee_scope"=> $fee['fee_scope'],
                 "sh_nm"    => $fee['sh_nm'],
                 "fl_nm"    => $fee['fl_nm'],
-                "amount"   => number_format((float)$pending, 2, '.', ''),   // ✅ pending is shown as amount
+                "amount"   => number_format((float)$pending, 2, '.', ''),
                 "paid"     => number_format((float)$fee['paid'], 2, '.', ''),
-                "pending"  => number_format((float)$pending, 2, '.', '')
+                "pending"  => number_format((float)$pending, 2, '.', ''),
             ];
         }
     }
-
     echo json_encode($pendingFees, JSON_PRETTY_PRINT);
     exit;
 }
+
 
 }
 
@@ -71,8 +71,10 @@ if($term_id > 0){
     while($f = $feeRes->fetch_assoc()){
         $f['paid'] = "0.00";
         $f['pending'] = number_format((float)$f['amount'], 2, '.', '');
+        $f['orig_amount'] = $f['amount']; // ✅ keep original
         $fees[] = $f;
     }
+
     echo json_encode($fees, JSON_PRETTY_PRINT);
 }
 ?>
