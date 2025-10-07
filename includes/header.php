@@ -29,18 +29,19 @@
   <div class="menu-content">
     <div class="dropdown">
       <a href="#"><button class="dropbtn action-button">Home</button></a>
-      <a href="addclass.php"><button class="dropbtn action-button">Add Class</button></a>
-      <a href="addsub.php"><button class="dropbtn action-button">Add Subject</button></a>
-      <a href="castem.php"><button class="dropbtn action-button">Add Caste</button></a>
-      <a href="religionm.php"><button class="dropbtn action-button">Add Religion</button></a>
-      <a href="feem.php"><button class="dropbtn action-button">Add Fee Structure</button></a>
-      <a href="register.php"><button class="dropbtn action-button">Student Registration</button></a>
-      <a href="verify.php"><button class="dropbtn action-button">Student Verification</button></a>
-      <a href="rct.php"><button class="dropbtn action-button">Fee Receipt</button></a>
     </div>
     <div class="dropdown">
       <button class="dropbtn action-button">Master</button>
       <div class="dropdown-content">
+        <a href="addclass.php">Add Class</a>
+        <a href="addsub.php">Add Subject</a>
+        <a href="castem.php">Add Caste</a>
+        <a href="religionm.php">Add Religion</a>
+        <a href="feem.php">Add Fee Structure</a>
+        <a href="register.php">Student Registration</a>
+        <a href="verify.php">Student Verification</a>
+        <a href="rct.php">Fee Receipt</a>
+        <a href="#">---------</a>
         <a href="#">A/c Master</a>
         <a href="#">Personal Address</a>
         <a href="#">Edition Master</a>
@@ -73,12 +74,6 @@
         <div class="has-submenu">
           <a href="#">Billing</a>
           <div class="submenu">
-            <a href="#">Daily Bill Summary</a>
-            <a href="#">A/c Wise Bill</a>
-            <a href="#">Particular A/c</a>
-            <a href="#">Editionwise Billing</a>
-            <a href="#">District Billing</a>
-            <a href="#">Ad. typewise Billing</a>
             <a href="#">Ratewise Billing</a>
             <a href="#">Commission on Billing</a>
             <a href="#">Pagewise Billing</a>
@@ -86,6 +81,12 @@
             <a href="#">Representative Billing-Detailed</a>
           </div>
         </div>
+        <a href="dcr.php">Daily Collection Report</a>
+        <a href="#">Roll Calls</a>
+        <a href="#">Fee Dues</a>
+        <a href="#">Castewise Report</a>
+        <a href="#">Subjectwise Report</a>
+        <a href="#">Coursewise Fee Collection</a>
         <a href="#">Monthly Reports</a>
         <a href="#">Outstanding Statements</a>
         <a href="ledger.php">Ledger</a>

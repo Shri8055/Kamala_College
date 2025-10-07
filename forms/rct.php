@@ -26,6 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['saveReceipt'])) {
     $receiptAmt = floatval($_POST['receipt_amt'] ?? 0);
     $paymentType= $_POST['payment_type'] ?? 'Cash';
     $utrNo      = $_POST['utr_no'] ?? '';
+if (floatval($_POST['receipt_amt']) <= 0) {
+    die("Invalid receipt amount. Must be greater than zero.");
+}
 
     // Fee JSON (build from JS before submit, or reconstruct here)
     $feeParticulars = $_POST['fee_data'] ?? '[]'; // send via hidden input
@@ -90,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['saveReceipt'])) {
             <td><label for="r_acad_yr">Academic Year:</label></td>
             <td><input type="text" id="r_acad_yr" name="r_acad_yr" value="<?php echo $acadYear; ?>" readonly></td>
             <td colspan="2">
-              <button style="padding:8px 16px; background:#0056b3; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-left: 40%;" type="button" id="calcBtn"><b>CALCULATOR</b></button>
+              <button style="padding:8px 16px; background:#0056b3; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-left: 45%;" type="button" id="calcBtn"><b>CALCULATOR</b></button>
               <!-- Calculator popup -->
               <div id="calculatorPopup" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; padding:10px; border-radius:8px; box-shadow:0 4px 10px rgba(0,0,0,0.2); z-index:1000;">
                 <input type="text" id="calcDisplay" readonly style="width:100%; padding:8px; margin-bottom:8px; font-size:1.2em; text-align:right; border:1px solid #ccc; border-radius:4px;">
@@ -123,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['saveReceipt'])) {
             <td><label for="type">Fee type:</label></td>
             <td><input type="text" id="type" name="type" readonly></td>
             <td><label for="std_fee">Standard Fee:</label></td>
-            <td><input type="text" id="std_fee" name="std_fee"></td>
+            <td><input type="text" id="std_fee" name="std_fee" readonly></td>
         </tr>
         <tr>
             <td><label for="r_stu_name">Student Name:</label></td>
@@ -138,15 +141,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['saveReceipt'])) {
         <tr>
             <td style="width: 10%;"><h4>Receipt Amount :</h4></td>
             <td style="width: 18%;"><input style="width: 90%;" name="receipt_amt" type="text" placeholder="Rct Amount"></td>
-            <td style="width: 8%;"><label for="">Payment Type :</label></td>
-            <td style="width: 13%;"><select name="" id="">
+            <script>
+document.getElementById("receiptForm").addEventListener("submit", function(e) {
+  const stuId = document.getElementById("stu_id").value.trim();
+  const receiptInput = document.querySelector("input[placeholder='Rct Amount']");
+  const receiptAmt = parseFloat(receiptInput.value || 0);
+
+  if (!stuId) {
+    e.preventDefault();
+    alert("⚠️ Please select a student first!");
+    return false;
+  }
+
+  if (isNaN(receiptAmt) || receiptAmt <= 0) {
+    e.preventDefault();
+    alert("⚠️ Receipt amount must be greater than ₹0.00");
+    receiptInput.focus();
+    return false;
+  }
+});
+</script>
+            <td style="width: 8%;"><label for="payment_type">Payment Type :</label></td>
+            <td style="width: 13%;"><select name="payment_type" id="payment_type">
                 <option value="Cash">Cash</option>
                 <option value="UPI">UPI</option>
                 <option value="DD">DD</option>
                 <option value="NEFT / RTGS">NEFT / RTGS</option>
             </select></td>
-            <td style="width: 10%;"><label for="">UTR/DD/RTGS No.:</label></td>
-            <td style="width: 25%;"><input type="text"></td>
+            <td style="width: 10%;"><label for="utr_no">UTR/DD/RTGS No.:</label></td>
+            <td style="width: 25%;"><input type="text" name="utr_no" id="utr_no"></td>
             <td>
               <button type="submit" name="saveReceipt" 
                       style="cursor:pointer; background:#4fc2ffbc; border:1px solid black; color: black;width:60%">
@@ -190,9 +213,9 @@ document.getElementById("stuSearch").addEventListener("keyup", function(){
             document.getElementById("searchResults").innerHTML = data;
         });
 });
-// =====================
+// ======================
 // Show Previous Receipts
-// =====================
+// ======================
 function renderReceipts(receipts) {
   let receiptBody = document.getElementById("receiptRows");
   receiptBody.innerHTML = "";
@@ -257,13 +280,13 @@ function renderFees(data, receiptAmt = null) {
       f.paid = pay;
       remaining -= pay;
     });
-    collegeFees.filter(f => f.sh_nm !== "TF").forEach(f => {
+    collegeFees.filter(f => f.sh_nm !== "TUTI F").forEach(f => {
       let amt = parseFloat(f.amount);
       let pay = Math.min(amt, remaining);
       f.paid = pay;
       remaining -= pay;
     });
-    let tuitionFee = collegeFees.find(f => f.sh_nm === "TF");
+    let tuitionFee = collegeFees.find(f => f.sh_nm === "TUTI F");
     if (tuitionFee) {
       let amt = parseFloat(tuitionFee.amount);
       let pay = Math.min(amt, remaining);
@@ -304,8 +327,8 @@ function renderFees(data, receiptAmt = null) {
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="2" style="text-align:right;">${title} Total:</td>
-            <td>₹${total.toFixed(2)}</td>
+            <td colspan="2" style="text-align:right; font-weight: bold;">${title} Total:</td>
+            <td style="float: right; border: none; font-weight: bold;">₹${total.toFixed(2)}</td>
           </tr>
         </tfoot>
       </table>
@@ -313,7 +336,7 @@ function renderFees(data, receiptAmt = null) {
   }
 
   let recommendedUni  = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
-  let recommendedColl = collegeFees.filter(f => f.sh_nm !== "TF").reduce((s, f) => s + parseFloat(f.amount), 0);
+  let recommendedColl = collegeFees.filter(f => f.sh_nm !== "TUTI F").reduce((s, f) => s + parseFloat(f.amount), 0);
   let recommendedTotal = recommendedUni + recommendedColl;
 
   // ✅ Build HTML first
@@ -400,20 +423,7 @@ document.getElementById("std_fee").value = totalFee.toFixed(2);
     .then(receipts => renderReceipts(receipts));
 }
 </script>
-<script>
-  document.getElementById("receiptForm").addEventListener("submit", function(e){
-  if(!document.getElementById("stu_id").value){
-    e.preventDefault();
-    alert("⚠️ Please select a student first!");
-    return false;
-  }
-  if(!document.querySelector("input[placeholder='Rct Amount']").value){
-    e.preventDefault();
-    alert("⚠️ Please enter Receipt Amount!");
-    return false;
-  }
-});
-</script>
+
 <script>
 document.getElementById("receiptForm").addEventListener("submit", function(e) {
     // collect all fee rows

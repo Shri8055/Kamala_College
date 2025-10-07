@@ -110,7 +110,7 @@ $maxRows = max(count($uniArr), count($colArr));
 <table style="width: 50%; border-collapse:collapse;">
   <tr>
     <td style="width:50%; font-weight: bold; padding-left: 0;">Particular</td>
-    <td style="width:50%; font-weight: bold; padding-left: 130px;">Paid</td>
+    <td style="width:50%; font-weight: bold; padding-left: 150px;">Paid</td>
   </tr>
   <?php foreach ($uniArr as $u): ?>
   <tr>
@@ -124,7 +124,7 @@ $maxRows = max(count($uniArr), count($colArr));
 <table style="width: 50%; border-collapse:collapse;">
   <tr>
     <td style="width:50%; font-weight: bold; padding-left: 0;">Particular</td>
-    <td style="width:50%; font-weight: bold; padding-left: 130px;">Paid</td>
+    <td style="width:50%; font-weight: bold; padding-left: 150px;">Paid</td>
   </tr>
   <?php foreach ($colArr as $c): ?>
   <tr>
@@ -142,84 +142,84 @@ $maxRows = max(count($uniArr), count($colArr));
           ₹<?= number_format($receipt['receipt_amount'],2) ?>
         </td>
       </tr>
+    </table>
+    <table>
       <tr>
-<?php
-function numberToWordsIndia($number) {
-    $number = number_format($number, 2, '.', ''); // ensure two decimal places
-    list($integerPart, $decimalPart) = explode('.', $number);
+          <?php
+          function numberToWordsIndia($number) {
+              $number = number_format($number, 2, '.', ''); // ensure two decimal places
+              list($integerPart, $decimalPart) = explode('.', $number);
 
-    $integerWords = convertNumberToWords($integerPart);
-    if (intval($decimalPart) > 0) {
-        $decimalWords = convertNumberToWords($decimalPart);
-        return ucfirst($integerWords) . " Rupees and " . $decimalWords . " Paise Only";
-    } else {
-        return ucfirst($integerWords) . " Rupees Only";
-    }
-}
+              $integerWords = convertNumberToWords($integerPart);
+              if (intval($decimalPart) > 0) {
+                  $decimalWords = convertNumberToWords($decimalPart);
+                  return ucfirst($integerWords) . " Rupees and " . $decimalWords . " Paise Only";
+              } else {
+                  return ucfirst($integerWords) . " Rupees Only";
+              }
+          }
 
-function convertNumberToWords($number) {
-    $hyphen      = '-';
-    $conjunction = ' and ';
-    $separator   = ', ';
-    $dictionary  = array(
-        0                   => 'zero',
-        1                   => 'one',
-        2                   => 'two',
-        3                   => 'three',
-        4                   => 'four',
-        5                   => 'five',
-        6                   => 'six',
-        7                   => 'seven',
-        8                   => 'eight',
-        9                   => 'nine',
-        10                  => 'ten',
-        11                  => 'eleven',
-        12                  => 'twelve',
-        13                  => 'thirteen',
-        14                  => 'fourteen',
-        15                  => 'fifteen',
-        16                  => 'sixteen',
-        17                  => 'seventeen',
-        18                  => 'eighteen',
-        19                  => 'nineteen',
-        20                  => 'twenty',
-        30                  => 'thirty',
-        40                  => 'forty',
-        50                  => 'fifty',
-        60                  => 'sixty',
-        70                  => 'seventy',
-        80                  => 'eighty',
-        90                  => 'ninety',
-        100                 => 'hundred',
-        1000                => 'thousand',
-        100000              => 'lakh',
-        10000000            => 'crore'
-    );
+          function convertNumberToWords($number) {
+              $hyphen      = '-';
+              $conjunction = ' and ';
+              $separator   = ', ';
+              $dictionary  = array(
+                  0                   => 'zero',
+                  1                   => 'one',
+                  2                   => 'two',
+                  3                   => 'three',
+                  4                   => 'four',
+                  5                   => 'five',
+                  6                   => 'six',
+                  7                   => 'seven',
+                  8                   => 'eight',
+                  9                   => 'nine',
+                  10                  => 'ten',
+                  11                  => 'eleven',
+                  12                  => 'twelve',
+                  13                  => 'thirteen',
+                  14                  => 'fourteen',
+                  15                  => 'fifteen',
+                  16                  => 'sixteen',
+                  17                  => 'seventeen',
+                  18                  => 'eighteen',
+                  19                  => 'nineteen',
+                  20                  => 'twenty',
+                  30                  => 'thirty',
+                  40                  => 'forty',
+                  50                  => 'fifty',
+                  60                  => 'sixty',
+                  70                  => 'seventy',
+                  80                  => 'eighty',
+                  90                  => 'ninety',
+                  100                 => 'hundred',
+                  1000                => 'thousand',
+                  100000              => 'lakh',
+                  10000000            => 'crore'
+              );
 
-    if ($number < 21) {
-        return $dictionary[$number];
-    } elseif ($number < 100) {
-        $tens = ((int)($number / 10)) * 10;
-        $units = $number % 10;
-        return $dictionary[$tens] . ($units ? $hyphen . $dictionary[$units] : '');
-    } elseif ($number < 1000) {
-        $hundreds = (int)($number / 100);
-        $remainder = $number % 100;
-        return $dictionary[$hundreds] . ' hundred' . ($remainder ? $conjunction . convertNumberToWords($remainder) : '');
-    } else {
-        foreach ([10000000 => 'crore', 100000 => 'lakh', 1000 => 'thousand'] as $value => $name) {
-            if ($number >= $value) {
-                $quotient = (int)($number / $value);
-                $remainder = $number % $value;
-                return convertNumberToWords($quotient) . " " . $name . ($remainder ? $separator . convertNumberToWords($remainder) : '');
-            }
-        }
-    }
-    return '';
-}
-?>
-
-
+              if ($number < 21) {
+                  return $dictionary[$number];
+              } elseif ($number < 100) {
+                  $tens = ((int)($number / 10)) * 10;
+                  $units = $number % 10;
+                  return $dictionary[$tens] . ($units ? $hyphen . $dictionary[$units] : '');
+              } elseif ($number < 1000) {
+                  $hundreds = (int)($number / 100);
+                  $remainder = $number % 100;
+                  return $dictionary[$hundreds] . ' hundred' . ($remainder ? $conjunction . convertNumberToWords($remainder) : '');
+              } else {
+                  foreach ([10000000 => 'crore', 100000 => 'lakh', 1000 => 'thousand'] as $value => $name) {
+                      if ($number >= $value) {
+                          $quotient = (int)($number / $value);
+                          $remainder = $number % $value;
+                          return convertNumberToWords($quotient) . " " . $name . ($remainder ? $separator . convertNumberToWords($remainder) : '');
+                      }
+                  }
+              }
+              return '';
+          }
+          ?>
         <td colspan="2" style="padding: 4px; font-style: italic;">
           In words: <?= ucwords(convertNumberToWords($receipt['receipt_amount'])) ?> only
         </td>

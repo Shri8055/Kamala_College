@@ -1,0 +1,121 @@
+@page {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  body {
+    font-family: "Calibri", "Inter", sans-serif;
+    font-size: 12px;
+    color: #000;
+    margin: 0;
+    padding: 20px;
+  }
+
+  .report-header {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .report-header h1 {
+    font-size: 16px;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  .report-header h2 {
+    font-size: 15px;
+    margin: 4px 0;
+  }
+
+  .meta {
+    font-size: 12px;
+    margin-top: 5px;
+    text-align: center;
+  }
+
+  .meta span {
+    display: inline-block;
+    margin: 0 8px;
+  }
+
+  form {
+    text-align: left;
+    margin-bottom: 10px;
+  }
+
+  input[type="date"], button {
+    padding: 6px;
+    font-size: 14px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 11px;
+  }
+
+  th, td {
+    border: 0.5px solid #000;
+    padding: 4px 3px;
+    text-align: right;
+    vertical-align: middle;
+    word-wrap: break-word;
+  }
+
+  th {
+    background: #f2f2f2;
+    font-weight: bold;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  td:first-child, th:first-child {
+    text-align: left;
+  }
+
+  .total-row {
+    background: #e0f0d9;
+    font-weight: bold;
+  }
+
+  .footer {
+    margin-top: 15px;
+    font-size: 11px;
+  }
+
+  .footer p {
+    margin: 4px 0;
+  }
+
+  .page-break {
+    page-break-after: always;
+  }
+
+  @media print {
+    form, button {
+      display: none;
+    }
+  }
+
+
+  
+#calculatorPopup {
+  background: #7e7e7e7c !important;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  position: absolute;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  display: none; /* Initially hidden */
+}
+#calculatorPopup.show {
+  opacity: 1;
+  position: fixed;
+}
+#calculatorPopup{ background:#7e7e7e7c !important; } 
+#calculatorPopup button { padding:10px; font-size:1em; border:none; background:#f1f1f1; border-radius:4px; cursor:pointer; } 
+#calculatorPopup button:hover { background:#ddd; }
