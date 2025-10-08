@@ -21,11 +21,12 @@ include "../includes/db.php";
   .no-print { margin-bottom: 10px; }
   @media print { .no-print { display: none; } }
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="../assets/css/dcr.css">
 </head>
 <body>
 
-<h2>📅 Daily Collection Register</h2>
+<h2 style="text-align: center; margin-top: 10px;">📅 Daily Collection Register</h2>
 
 <form method="GET" class="no-print">
   <label for="from">From Date:</label>
@@ -35,6 +36,12 @@ include "../includes/db.php";
   <button type="submit" style="background-color: #ffd861ff; border: 1px solid #00000042; cursor: pointer; border-radius: 5px;">Show</button>
   <?php if (!empty($_GET['from']) && !empty($_GET['to'])): ?>
     <button type="button" style="background-color: #a4ff9aff; border: 1px solid #00000042; cursor: pointer; border-radius: 5px;" onclick="window.open('print_dcr.php?from=<?= urlencode($_GET['from']) ?>&to=<?= urlencode($_GET['to']) ?>','_blank')">🖨️ Print DCR</button>
+    <button type="button" 
+            style="background-color: #9ab4ff; border: 1px solid #00000042; cursor: pointer; border-radius: 5px;" 
+            onclick="window.open('export_dcr.php?from=<?= urlencode($_GET['from']) ?>&to=<?= urlencode($_GET['to']) ?>','_blank')">
+            📤 Export to Excel
+    </button>
+
   <?php endif; ?>
   <button style="padding:8px 16px; background:#0056b3; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-left: 45%;" type="button" id="calcBtn"><b>CALCULATOR</b></button>
               <!-- Calculator popup -->
@@ -174,9 +181,12 @@ if (!empty($_GET['from']) && !empty($_GET['to'])) {
     'receipt_amount' => floatval($r['receipt_amount']),
     'pending_fee' => floatval($r['pending_fee']),
     'payment_type' => $r['payment_type'],
-    'utr_no' => $r['utr_no'],  // ✅ Include this
+    'utr_no' => $r['utr_no'] ?? '',
+    'concession_by' => $r['concession_by'] ?? '',
+    'concession_amt' => isset($r['concession_amt']) ? floatval($r['concession_amt']) : 0,
     'heads' => $map
 ];
+
 
     }
 
@@ -211,7 +221,7 @@ if (!empty($_GET['from']) && !empty($_GET['to'])) {
                 $head = ($idx < $totalHeads) ? htmlspecialchars($allHeads[$idx]) : '';
                 echo "<th>$head</th>";
             }
-            if ($r == 0) echo "<th rowspan='{$headerRows}'>Total & Pending</th>";
+            if ($r == 0) echo "<th rowspan='{$headerRows}'>Paid & Pending</th>";
             echo "</tr>";
         }
         echo "</thead><tbody>";
@@ -233,8 +243,18 @@ if (!empty($_GET['from']) && !empty($_GET['to'])) {
                 echo "<td>" . ($val !== '' ? number_format($val, 2) : '') . "</td>";
             }
 
-            echo "<td rowspan='{$headerRows}'><b>" . number_format($s['receipt_amount'], 2) . "</b><br><small>Pending: " . number_format($s['pending_fee'], 2) . "</small></td>";
-            echo "</tr>";
+            echo "
+  <td rowspan='{$headerRows}'>
+    <b>Paid: " . number_format($s['receipt_amount'], 2) . "</b>
+    <br><small>Pending: " . number_format($s['pending_fee'], 2) . "</small>";
+
+if (!empty($s['concession_by']) || !empty($s['concession_amt'])) {
+    echo "<br><small>Concession By: " . htmlspecialchars($s['concession_by']) . "</small>
+          <br><small>Concession Amount: " . number_format($s['concession_amt'], 2) . "</small>";
+}
+
+echo "</td>";
+
 
             for ($r = 1; $r < $headerRows; $r++) {
                 echo "<tr>";

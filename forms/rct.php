@@ -26,6 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['saveReceipt'])) {
     $receiptAmt = floatval($_POST['receipt_amt'] ?? 0);
     $paymentType= $_POST['payment_type'] ?? 'Cash';
     $utrNo      = $_POST['utr_no'] ?? '';
+    $concession = isset($_POST['concession_data']) ? json_decode($_POST['concession_data'], true) : [];
+    $concession_by = $_POST['concession_by'] ?? '';
+    $concession_amt = $_POST['concession_amt'] ?? 0;
+
 if (floatval($_POST['receipt_amt']) <= 0) {
     die("Invalid receipt amount. Must be greater than zero.");
 }
@@ -41,22 +45,22 @@ if (floatval($_POST['receipt_amt']) <= 0) {
     // ✅ Insert into receipts
     $stmt = $conn->prepare("INSERT INTO receipts 
         (receipt_no, receipt_date, academic_year, stu_acad_year, student_prn, student_name, student_class, category, fee_type,
-         fee_particulars, total_fee, receipt_amount, pending_fee, payment_type, utr_no) 
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+         fee_particulars, total_fee, receipt_amount, pending_fee, payment_type, utr_no, concession_by, concession_amt) 
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
     $jsonFee = json_encode($feeParticulars, JSON_UNESCAPED_UNICODE);
     $stuAcadYear = $acadYear; // or derive FY/SY/TY
-    $stmt->bind_param("ssssssssssddsss", 
+    $stmt->bind_param("ssssssssssddsssss", 
         $receipt_no, $receipt_date, $acadYear, $stuAcadYear, $prn, $name, $cls, $category, $stu_type,
-        $jsonFee, $totalFee, $receiptAmt, $pending, $paymentType, $utrNo
+        $jsonFee, $totalFee, $receiptAmt, $pending, $paymentType, $utrNo, $concession_by, $concession_amt
     );
     $stmt->execute();
 
     // ✅ Update student_subjects (tot_fee, pen_fee)
     // Example: update student's subject fees
     $stmt = $conn->prepare("UPDATE student_subjects 
-                            SET tot_fee=?, pen_fee=? 
+                            SET pen_fee=? 
                             WHERE stu_id=?");
-    $stmt->bind_param("dds", $totalFee, $pending, $prn);
+    $stmt->bind_param("ds", $pending, $prn);
     $stmt->execute();
 
     echo "<script>alert('✅ Receipt saved and fees updated successfully!')
@@ -254,133 +258,168 @@ function renderReceipts(receipts) {
 // =====================
 // Render Fee Tables
 // =====================
-function renderFees(data, receiptAmt = null) {
-  let feeBody = document.getElementById("feeRows");
+function renderFees(data, concessionGiven = false, concessionAmount = 0) {
+  const feeBody = document.getElementById("feeRows");
   feeBody.innerHTML = "";
 
-  let universityFees = data.filter(row => row.fee_scope === "university");
-  let collegeFees    = data.filter(row => row.fee_scope === "college");
+  const universityFees = data.filter(row => row.fee_scope === "university");
+  const collegeFees = data.filter(row => row.fee_scope === "college");
 
-  let universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
-  let collegeTotal    = collegeFees.reduce((s, f) => s + parseFloat(f.amount), 0);
-  let grandTotal      = universityTotal + collegeTotal;
-
-  if (receiptAmt !== null && receiptAmt > grandTotal) {
-    alert("❌ Receipt Amount cannot be greater than Grand Total (" + grandTotal.toFixed(2) + ")");
-    receiptAmt = grandTotal;
-    let receiptInput = document.querySelector("input[placeholder='Rct Amount']");
-    if (receiptInput) receiptInput.value = grandTotal.toFixed(2);
-  }
-
-  if (receiptAmt !== null) {
-    let remaining = receiptAmt;
-    universityFees.forEach(f => {
-      let amt = parseFloat(f.amount);
-      let pay = Math.min(amt, remaining);
-      f.paid = pay;
-      remaining -= pay;
-    });
-    collegeFees.filter(f => f.sh_nm !== "TUTI F").forEach(f => {
-      let amt = parseFloat(f.amount);
-      let pay = Math.min(amt, remaining);
-      f.paid = pay;
-      remaining -= pay;
-    });
-    let tuitionFee = collegeFees.find(f => f.sh_nm === "TUTI F");
-    if (tuitionFee) {
-      let amt = parseFloat(tuitionFee.amount);
-      let pay = Math.min(amt, remaining);
-      tuitionFee.paid = pay;
-      remaining -= pay;
-    }
-  } else {
-    [...universityFees, ...collegeFees].forEach(f => f.paid = 0);
-  }
+  const universityTotal = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+  const collegeTotal = collegeFees.reduce((s, f) => s + parseFloat(f.amount), 0);
+  const grandTotal = universityTotal + collegeTotal;
 
   window.feeCache = [...universityFees, ...collegeFees];
 
+  // --- Build Table ---
   function makeTable(title, rows, total) {
     if (!rows.length) return "";
     return `
       <table border="1" style="width:100%;border-collapse:collapse;">
         <thead>
-          <tr style="background:#0056b3;color:#fff;">
-            <th colspan="3">${title}</th>
-          </tr>
-          <tr style="background:#ddd;">
-            <th>Particular</th>
-            <th>Amount</th>
-            <th>Pay</th>
-          </tr>
+          <tr style="background:#0056b3;color:#fff;"><th colspan="3">${title}</th></tr>
+          <tr style="background:#ddd;"><th>Particular</th><th>Amount</th><th>Pay</th></tr>
         </thead>
         <tbody>
           ${rows.map(r => `
             <tr>
               <td>${r.fl_nm}</td>
               <td style="text-align:right;">${parseFloat(r.amount).toFixed(2)}</td>
-              <td><input type="number" 
-                         class="fee-input" 
-                         data-max="${parseFloat(r.amount).toFixed(2)}"
-                         value="${r.paid.toFixed(2)}"></td>
-            </tr>
-          `).join("")}
+              <td><input type="number" class="fee-input" data-max="${parseFloat(r.amount).toFixed(2)}"
+                         value="0.00" step="0.01" min="0"></td>
+            </tr>`).join("")}
         </tbody>
         <tfoot>
-          <tr>
-            <td colspan="2" style="text-align:right; font-weight: bold;">${title} Total:</td>
-            <td style="float: right; border: none; font-weight: bold;">₹${total.toFixed(2)}</td>
-          </tr>
+          <tr><td colspan="2" style="text-align:right;font-weight:bold;">${title} Total:</td>
+          <td style="text-align:right;font-weight:bold;">₹${total.toFixed(2)}</td></tr>
         </tfoot>
-      </table>
-    `;
+      </table>`;
   }
 
-  let recommendedUni  = universityFees.reduce((s, f) => s + parseFloat(f.amount), 0);
-  let recommendedColl = collegeFees.filter(f => f.sh_nm !== "TUTI F").reduce((s, f) => s + parseFloat(f.amount), 0);
-  let recommendedTotal = recommendedUni + recommendedColl;
+  // --- Concession Block (only if not already given) ---
+  const concessionBlock = !concessionGiven ? `
+    <tr>
+      <td colspan="0" style="padding:8px;font-weight:bold; width: 10%;">
+        <label style="width: 100%;">Concession By:</label>
+      </td>
+      <td style="width: 15%;">
+        <select id="concession_by" name="concession_by" style="margin-left:5px; width: 100%;">
+          <option value="">Select</option>
+          <option value="President">President</option>
+          <option value="Secretary">Secretary</option>
+          <option value="Principal">Principal</option>
+        </select>
+      </td>
+      <td style="width: 15%;"><label style="margin-left:10px;">Concession Amount (₹):</label></td>
+      <td><input type="number" id="concession_amt" value="0.00" name="concession_amt"
+               min="0" step="0.01" style="width:150px; float: left;"></td>
+    </tr>` : "";
 
-  // ✅ Build HTML first
-  let html = `
+  // --- Full Layout ---
+  const html = `
     <tr>
       <td colspan="6">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
           ${makeTable("University Fees", universityFees, universityTotal)}
           ${makeTable("College Fees", collegeFees, collegeTotal)}
         </div>
       </td>
     </tr>
-    <tr class="fee-grand">
-      <td colspan="6">Grand Total Pending : ₹${grandTotal.toFixed(2)}</td>
-    </tr>
-    <tr class="pen-amt">
-      <td colspan="6">Pending Fee: ₹${(grandTotal - (receiptAmt || 0)).toFixed(2)}</td>
-    </tr>
+    ${concessionBlock}
+    <tr class="fee-grand"><td colspan="6" id="std_fee_row">Standard Fee: ₹${grandTotal.toFixed(2)}</td></tr>
+    <tr class="fee-grand"><td colspan="6" id="concession_row">Concession Applied: ₹${concessionAmount.toFixed(2)}</td></tr>
+    <tr class="fee-grand"><td colspan="6" id="after_concession_row">Total Payable After Concession: ₹${(grandTotal - concessionAmount).toFixed(2)}</td></tr>
+    <tr class="pen-amt"><td colspan="6" id="pending_row">Pending Fee: ₹${(grandTotal - concessionAmount).toFixed(2)}</td></tr>
     <tr style="background:#6cdefbc5;font-weight:bold;">
-      <td colspan="6" style="padding:8px; color:#333;">
+      <td colspan="6" style="padding:8px;color:#333;">
         Recommended Payment:<br>
-        ➤ University Fees: ₹${recommendedUni.toFixed(2)}<br>
-        ➤ College Fees (without Tuition): ₹${recommendedColl.toFixed(2)}<br>
-        <h3>➤ Total Recommended: ₹${recommendedTotal.toFixed(2)}</h3>
+        ➤ University Fees: ₹${universityTotal.toFixed(2)}<br>
+        ➤ College Fees (without Tuition): ₹${collegeFees.filter(f => f.sh_nm !== "TUTI F").reduce((s, f) => s + parseFloat(f.amount), 0).toFixed(2)}<br>
+        <h3>➤ Total Recommended: ₹${(universityTotal + collegeTotal).toFixed(2)}</h3>
       </td>
-    </tr>
-  `;
-
-  // ✅ Then insert it
+    </tr>`;
   feeBody.innerHTML = html;
 
-  // ✅ Then bind validation
+  // --- Elements ---
+  const receiptInput = document.querySelector("input[placeholder='Rct Amount']");
+  const concessionAmt = document.getElementById("concession_amt"); // may be null
+  const stdRow = document.getElementById("std_fee_row");
+  const conRow = document.getElementById("concession_row");
+  const afterConRow = document.getElementById("after_concession_row");
+  const pendingRow = document.getElementById("pending_row");
+
+  // --- Core Function: update + distribute ---
+  function updateTotalsAndDistribute() {
+    let receipt = parseFloat(receiptInput.value || 0);
+    let concession = parseFloat((concessionAmt && concessionAmt.value) || concessionAmount || 0);
+
+    // Limit receipt ≤ effective pending
+    const effectiveTotal = Math.max(grandTotal - concession, 0);
+    if (receipt > effectiveTotal) {
+      receipt = effectiveTotal;
+      receiptInput.value = receipt.toFixed(2);
+    }
+
+    // Update totals
+    stdRow.textContent = `Standard Fee: ₹${grandTotal.toFixed(2)}`;
+    conRow.textContent = `Concession Applied: ₹${concession.toFixed(2)}`;
+    afterConRow.textContent = `Total Payable After Concession: ₹${effectiveTotal.toFixed(2)}`;
+    pendingRow.textContent = `Pending Fee: ₹${(effectiveTotal - receipt).toFixed(2)}`;
+
+    // --- Auto distribution ---
+    let remaining = receipt;
+    [...universityFees, ...collegeFees].forEach(f => (f.paid = 0));
+
+    // 1️⃣ University first
+    universityFees.forEach(f => {
+      const amt = parseFloat(f.amount);
+      const pay = Math.min(amt, remaining);
+      f.paid = pay;
+      remaining -= pay;
+    });
+
+    // 2️⃣ College (non-Tuition)
+    collegeFees.filter(f => f.sh_nm !== "TUTI F").forEach(f => {
+      const amt = parseFloat(f.amount);
+      const pay = Math.min(amt, remaining);
+      f.paid = pay;
+      remaining -= pay;
+    });
+
+    // 3️⃣ Tuition last — adjust concession from it
+    const tuition = collegeFees.find(f => f.sh_nm === "TUTI F");
+    if (tuition) {
+      const amt = Math.max(parseFloat(tuition.amount) - concession, 0);
+      tuition.paid = Math.min(amt, remaining);
+    }
+
+    // Reflect on UI
+    const inputs = document.querySelectorAll(".fee-input");
+    const allFees = [...universityFees, ...collegeFees];
+    inputs.forEach((inp, i) => {
+      inp.value = (allFees[i]?.paid ?? 0).toFixed(2);
+    });
+  }
+
+  // --- Listeners ---
   document.querySelectorAll(".fee-input").forEach(inp => {
     inp.addEventListener("input", function() {
       let max = parseFloat(this.dataset.max);
       let val = parseFloat(this.value) || 0;
-      if (val < 0) this.value = "0.00";
-      if (val > max) this.value = max.toFixed(2);
+      if (val < 0) val = 0;
+      if (val > max) val = max;
+      this.value = val.toFixed(2);
       updateReceiptAmount();
     });
   });
 
-  document.getElementById("fee_tot").value = grandTotal.toFixed(2);
+  receiptInput.addEventListener("input", updateTotalsAndDistribute);
+  if (concessionAmt) concessionAmt.addEventListener("input", updateTotalsAndDistribute);
+
+  // --- Initial run
+  updateTotalsAndDistribute();
 }
+
 
 // 📌 When row clicked
 function updateReceiptAmount() {
@@ -400,28 +439,27 @@ function selectStudent(stuId, prn, fullname, clsName, category, stuType) {
   document.getElementById("r_stu_cat").value = category;
   document.getElementById("prn_no").value = prn;
   document.getElementById("type").value = stuType;
-  // 1️⃣ Load Fee Heads
+
+  // 1️⃣ Load Fee Heads + Concession info
   fetch("load_fees.php?cls=" + encodeURIComponent(clsName) +
         "&type=" + encodeURIComponent(stuType) +
         "&prn=" + encodeURIComponent(prn))
     .then(res => res.json())
     .then(data => {
-      console.log("✅ Fees response:", data); // <-- debug
-      renderFees(data);
-      let totalFee = data.reduce((sum, f) => sum + parseFloat(f.orig_amount || f.amount), 0);
-document.getElementById("std_fee").value = totalFee.toFixed(2);
+      const { fees, concession_given, concession_amount } = data;
 
-      document.querySelector("input[placeholder='Rct Amount']")
-        .addEventListener("input", function(){
-          let val = parseFloat(this.value || 0);
-          renderFees(data, val);
-        });
+      renderFees(fees, concession_given, concession_amount);
+
+      let totalFee = fees.reduce((sum, f) => sum + parseFloat(f.orig_amount || f.amount), 0);
+      document.getElementById("std_fee").value = totalFee.toFixed(2);
     });
+
   // 2️⃣ Load Receipts
   fetch("get_receipts.php?prn=" + encodeURIComponent(prn))
     .then(res => res.json())
     .then(receipts => renderReceipts(receipts));
 }
+
 </script>
 
 <script>

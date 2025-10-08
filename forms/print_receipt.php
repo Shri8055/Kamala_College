@@ -37,7 +37,7 @@ $colArr = array_values($collegeFees);
 </head>
 <body>
   <body oncontextmenu="return false" onkeydown="return false" onmousedown="return false">
-
+ 
     <table>
         <tr style="border: 2px solid black;">
             <td style="width: 8%; padding: 15px;">
@@ -234,6 +234,13 @@ $maxRows = max(count($uniArr), count($colArr));
         <td><b>Pending Fees:</b></td>
         <td style="text-align:right;">₹<?= number_format($receipt['pending_fee'],2) ?></td>
       </tr>
+      <?php if ($receipt['concession_amt'] > 0): ?>
+<tr>
+  <td colspan="2"><strong>Concession By:</strong> <?= htmlspecialchars($receipt['concession_by']) ?></td>
+  <td colspan="2"><strong>Concession Amount:</strong> ₹<?= number_format($receipt['concession_amt'], 2) ?></td>
+</tr>
+<?php endif; ?>
+
     </table>
 
         <script>

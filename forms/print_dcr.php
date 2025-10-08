@@ -30,8 +30,10 @@ if (empty($from) || empty($to)) {
   thead { display: table-header-group; } /* Repeat header on new page */
   .page-break { page-break-after: always; }
 </style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body onload="window.print()">
+<body oncontextmenu="return false" onkeydown="return false" onmousedown="return false">
 
 <div class="report-header">
   <h1>TARARANI VIDYAPEETH’S KAMALA COLLEGE, KOLHAPUR</h1>
@@ -70,16 +72,19 @@ while ($r = $res->fetch_assoc()) {
         }
     }
     $grouped[$date][] = [
-        'student_name' => $r['student_name'],
-        'student_prn' => $r['student_prn'],
-        'student_class' => $r['student_class'],
-        'receipt_no' => $r['receipt_no'],
-        'fee_type' => strtoupper($r['fee_type']),
-        'receipt_amount' => floatval($r['receipt_amount']),
-        'pending_fee' => floatval($r['pending_fee']),
-        'payment_type' => $r['payment_type'],
-        'heads' => $map
-    ];
+    'student_name' => $r['student_name'],
+    'student_prn' => $r['student_prn'],
+    'student_class' => $r['student_class'],
+    'receipt_no' => $r['receipt_no'],
+    'fee_type' => strtoupper($r['fee_type']),
+    'receipt_amount' => floatval($r['receipt_amount']),
+    'pending_fee' => floatval($r['pending_fee']),
+    'payment_type' => $r['payment_type'],
+    'utr_no' => $r['utr_no'] ?? '',
+    'concession_by' => $r['concession_by'] ?? '',
+    'concession_amt' => isset($r['concession_amt']) ? floatval($r['concession_amt']) : 0,
+    'heads' => $map
+];
 }
 
 sort($allHeads);
@@ -109,7 +114,7 @@ foreach ($grouped as $date => $students) {
             $head = ($idx < $totalHeads) ? htmlspecialchars($allHeads[$idx]) : '';
             echo "<th>$head</th>";
         }
-        if ($r == 0) echo "<th rowspan='{$headerRows}'>Total & Pending</th>";
+        if ($r == 0) echo "<th rowspan='{$headerRows}'>Paid & Pending</th>";
         echo "</tr>";
     }
     echo "</thead><tbody>";
@@ -134,8 +139,17 @@ foreach ($grouped as $date => $students) {
             echo "<td>" . ($val !== '' ? number_format($val, 2) : '') . "</td>";
         }
 
-        echo "<td rowspan='{$headerRows}' class='total-right'><b>" . number_format($s['receipt_amount'], 2) . "</b><br><small>Pending: " . number_format($s['pending_fee'], 2) . "</small></td>";
-        echo "</tr>";
+        echo "
+  <td rowspan='{$headerRows}'>
+    <b>Paid: " . number_format($s['receipt_amount'], 2) . "</b>
+    <br><small>Pending: " . number_format($s['pending_fee'], 2) . "</small>";
+
+if (!empty($s['concession_by']) || !empty($s['concession_amt'])) {
+    echo "<br><small>Concession By: " . htmlspecialchars($s['concession_by']) . "</small>
+          <br><small>Concession Amount: " . number_format($s['concession_amt'], 2) . "</small>";
+}
+
+echo "</td>";
 
         // Remaining stacked rows
         for ($r = 1; $r < $headerRows; $r++) {
@@ -188,5 +202,48 @@ echo "<tr><td colspan='12' class='bank-line'>"
     echo "</div>";
 }
 ?>
+<script>
+// === Disable Right-Click Context Menu ===
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+// === Disable common DevTools shortcuts ===
+document.addEventListener('keydown', function(e) {
+    // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C, Ctrl+U
+    if (
+        e.keyCode === 123 || 
+        (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key.toUpperCase())) ||
+        (e.ctrlKey && e.key.toUpperCase() === 'U')
+    ) {
+        e.preventDefault();
+        return false;
+    }
+});
+
+// === Detect DevTools open (interval check) ===
+(function() {
+    const element = new Image();
+    Object.defineProperty(element, 'id', {
+        get: function() {
+            alert('⚠️ Developer tools are disabled on this page!');
+            window.close();
+        }
+    });
+    console.log(element);
+})();
+
+// === Disable text selection & copying ===
+document.addEventListener('selectstart', e => e.preventDefault());
+document.addEventListener('copy', e => e.preventDefault());
+document.addEventListener('cut', e => e.preventDefault());
+document.addEventListener('paste', e => e.preventDefault());
+
+// === Disable drag/drop ===
+document.addEventListener('dragstart', e => e.preventDefault());
+document.addEventListener('drop', e => e.preventDefault());
+
+// === Make the whole page non-editable ===
+document.body.contentEditable = false;
+document.designMode = "off";
+</script>
 </body>
 </html>
