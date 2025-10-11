@@ -31,7 +31,7 @@ include '../includes/db.php';
 </style>
 </head>
 <body>
-<h2 style="Display: flex; justify-content: center; margin-top: 10px;">Roll Call Management</h2>
+<h2 style="Display: flex; justify-content: center; margin-top: 10px;">🎓 Roll Call Management</h2>
 
 <form method="GET">
   <label for="class">Select Class:</label>
@@ -58,7 +58,7 @@ if (!empty($_GET['class'])) {
     $status->execute();
     $isFrozen = $status->get_result()->fetch_assoc()['is_frozen'] ?? 0;
 
-    echo "<h3>Class: <u>$cls</u></h3>";
+    echo "<h3 style='Display: flex; justify-content: center; margin-top: 10px;'><span style='padding-right: 10px;'>Class: </span>  <u> $cls</u></h3>";
     echo $isFrozen ? "<p class='frozen'>✅ Admission Frozen</p>" : "<p class='unfrozen'>⚠️ Admission Open</p>";
 
     $info = $conn->prepare("SELECT freeze_count, frozen_on FROM roll_call_status WHERE student_class=? LIMIT 1");

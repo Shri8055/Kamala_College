@@ -224,15 +224,11 @@ $maxRows = max(count($uniArr), count($colArr));
           In words: <?= ucwords(convertNumberToWords($receipt['receipt_amount'])) ?> only
         </td>
       </tr>
-      <tr>
-        <td style="width: 20%;"><b>Payment Type:</b></td>
-        <td style="text-align:right;width: 20%;">
-          <?= $receipt['payment_type'] ?> <?= $receipt['utr_no'] ? "(".$receipt['utr_no'].")" : "" ?>
-        </td>
+      <tr style="width: 20%;">
+        <td style="width: 2%;"><b>Payment Type: </b><?= $receipt['payment_type'] ?> <?= $receipt['utr_no'] ? "(".$receipt['utr_no'].")" : "" ?></td>
       </tr>
       <tr>
-        <td style="width: 20%;"><b>Pending Fees:</b></td>
-        <td style="text-align:right;width: 20%;">₹<?= number_format($receipt['pending_fee'],2) ?></td>
+        <td style="width: 20%;"><b>Pending Fees: </b>₹<?= number_format($receipt['pending_fee'],2) ?></td>
       </tr>
       <?php if ($receipt['concession_amt'] > 0): ?>
 <tr>

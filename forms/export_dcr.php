@@ -62,7 +62,7 @@ header("Expires: 0");
 
 // Start Excel output (HTML table compatible with Excel)
 echo "<table border='1'>";
-echo "<tr><th colspan='" . (count($allHeads) + 6) . "' style='font-size:16px;'>Daily Collection Register (BCA)</th></tr>";
+echo "<tr><th colspan='" . (count($allHeads) + 6) . "' style='font-size:16px;'>Daily Collection Register</th></tr>";
 echo "<tr><th colspan='" . (count($allHeads) + 6) . "'>Session: 2025-2026 | From: " . date('d/m/Y', strtotime($from)) . " To: " . date('d/m/Y', strtotime($to)) . "</th></tr>";
 
 foreach ($grouped as $date => $students) {

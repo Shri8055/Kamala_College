@@ -83,8 +83,8 @@
           </div>
         </div>
         <a href="dcr.php">Daily Collection Report</a>
-        <a href="#">Roll Calls</a>
-        <a href="#">Fee Dues</a>
+        <a href="roll_call.php">Roll Calls</a>
+        <a href="fee_dues.php">Fee Dues</a>
         <a href="#">Castewise Report</a>
         <a href="#">Subjectwise Report</a>
         <a href="#">Coursewise Fee Collection</a>

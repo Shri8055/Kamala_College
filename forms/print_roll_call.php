@@ -23,7 +23,7 @@ th { background: #ddd; }
 }
 </style>
 </head>
-<body>
+<body oncontextmenu="return false" onkeydown="return false" onmousedown="return false">
 <h2 style="text-align:center;">KAMALA COLLEGE, KOLHAPUR</h2>
 <h3 style="text-align:center;">Roll Call List - <?= htmlspecialchars($cls) ?></h3>
 <table>
@@ -76,6 +76,48 @@ window.onload = function() {
     window.print(); // 🖨️ auto open print popup
 };
 </script>
+<script>
+// === Disable Right-Click Context Menu ===
+document.addEventListener('contextmenu', event => event.preventDefault());
 
+// === Disable common DevTools shortcuts ===
+document.addEventListener('keydown', function(e) {
+    // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C, Ctrl+U
+    if (
+        e.keyCode === 123 || 
+        (e.ctrlKey && e.shiftKey && ['I','J','C'].includes(e.key.toUpperCase())) ||
+        (e.ctrlKey && e.key.toUpperCase() === 'U')
+    ) {
+        e.preventDefault();
+        return false;
+    }
+});
+
+// === Detect DevTools open (interval check) ===
+(function() {
+    const element = new Image();
+    Object.defineProperty(element, 'id', {
+        get: function() {
+            alert('⚠️ Developer tools are disabled on this page!');
+            window.close();
+        }
+    });
+    console.log(element);
+})();
+
+// === Disable text selection & copying ===
+document.addEventListener('selectstart', e => e.preventDefault());
+document.addEventListener('copy', e => e.preventDefault());
+document.addEventListener('cut', e => e.preventDefault());
+document.addEventListener('paste', e => e.preventDefault());
+
+// === Disable drag/drop ===
+document.addEventListener('dragstart', e => e.preventDefault());
+document.addEventListener('drop', e => e.preventDefault());
+
+// === Make the whole page non-editable ===
+document.body.contentEditable = false;
+document.designMode = "off";
+</script>
 </body>
 </html>
