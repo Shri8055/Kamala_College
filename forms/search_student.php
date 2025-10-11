@@ -28,7 +28,7 @@ echo "
       </tr>
 ";
 while($row = $res->fetch_assoc()){
-    $fullName = htmlspecialchars($row['r_stu_name'] . " " . $row['r_stu_father'] . "" . $row['r_stu_sur']);
+    $fullName = htmlspecialchars($row['r_stu_name'] . " " . $row['r_stu_father'] . " " . $row['r_stu_sur']);
     $cls = htmlspecialchars($row['r_stu_admi_cls']);
     $cat = htmlspecialchars($row['r_stu_castcat']);
     $type = htmlspecialchars($row['type']);

@@ -46,6 +46,8 @@ while ($r = $res->fetch_assoc()) {
         'pending_fee' => floatval($r['pending_fee']),
         'payment_type' => $r['payment_type'],
         'utr_no' => $r['utr_no'],
+        'concession_by' => $r['concession_by'] ?? '',
+        'concession_amt' => isset($r['concession_amt']) ? floatval($r['concession_amt']) : 0,
         'heads' => $map
     ];
 }
@@ -77,7 +79,7 @@ foreach ($grouped as $date => $students) {
         echo "<th>" . htmlspecialchars($head) . "</th>";
     }
 
-    echo "<th>Total</th><th>Pending</th><th>Payment Type</th><th>Ref No</th></tr>";
+    echo "<th>Total</th><th>Pending</th><th>Payment Type</th><th>Concession</th><th>Ref No</th></tr>";
 
     // Data rows
     $dateTotals = array_fill_keys($allHeads, 0.0);
@@ -102,6 +104,7 @@ foreach ($grouped as $date => $students) {
         echo "<td>" . number_format($s['receipt_amount'], 2) . "</td>";
         echo "<td>" . number_format($s['pending_fee'], 2) . "</td>";
         echo "<td>" . htmlspecialchars($s['payment_type']) . "</td>";
+        echo "<td>" . htmlspecialchars($s['concession_by']) ." - ". htmlspecialchars($s['concession_amt']) ."</td>";
         echo "<td>" . $utrDisplay . "</td>";
         echo "</tr>";
 

@@ -225,14 +225,14 @@ $maxRows = max(count($uniArr), count($colArr));
         </td>
       </tr>
       <tr>
-        <td><b>Payment Type:</b></td>
-        <td style="text-align:right;">
+        <td style="width: 20%;"><b>Payment Type:</b></td>
+        <td style="text-align:right;width: 20%;">
           <?= $receipt['payment_type'] ?> <?= $receipt['utr_no'] ? "(".$receipt['utr_no'].")" : "" ?>
         </td>
       </tr>
       <tr>
-        <td><b>Pending Fees:</b></td>
-        <td style="text-align:right;">₹<?= number_format($receipt['pending_fee'],2) ?></td>
+        <td style="width: 20%;"><b>Pending Fees:</b></td>
+        <td style="text-align:right;width: 20%;">₹<?= number_format($receipt['pending_fee'],2) ?></td>
       </tr>
       <?php if ($receipt['concession_amt'] > 0): ?>
 <tr>

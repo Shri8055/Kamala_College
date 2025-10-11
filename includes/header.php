@@ -41,6 +41,7 @@
         <a href="register.php">Student Registration</a>
         <a href="verify.php">Student Verification</a>
         <a href="rct.php">Fee Receipt</a>
+        <a href="roll_call.php">Roll Calls</a>
         <a href="#">---------</a>
         <a href="#">A/c Master</a>
         <a href="#">Personal Address</a>

@@ -55,6 +55,91 @@ if (floatval($_POST['receipt_amt']) <= 0) {
     );
     $stmt->execute();
 
+    // ======================
+// 🎓 AUTO ADD TO ROLL CALL
+// ======================
+
+// Check if student already exists in roll_call for this class
+$checkRoll = $conn->prepare("SELECT roll_id FROM roll_call WHERE prn = ? AND student_class = ?");
+$checkRoll->bind_param("ss", $prn, $cls);
+$checkRoll->execute();
+$rollExists = $checkRoll->get_result();
+
+if ($rollExists->num_rows == 0) {
+
+    // 🔹 Fetch student details from admts table using PRN
+    $stu_mob_no = null;
+    $stu_email = null;
+    $stu_abc_id = null;
+    $stu_cat = $category; // default
+
+    $fetchAdmt = $conn->prepare("SELECT r_stu_ph, r_stu_email, r_stu_castcat FROM admts WHERE prn_no = ? LIMIT 1");
+    $fetchAdmt->bind_param("s", $prn);
+    $fetchAdmt->execute();
+    $resAdmt = $fetchAdmt->get_result();
+
+    if ($resAdmt && $resAdmt->num_rows > 0) {
+        $row = $resAdmt->fetch_assoc();
+        $stu_mob_no = $row['r_stu_ph'] ?? null;
+        $stu_email  = $row['r_stu_email'] ?? null;
+        $stu_cat    = $row['r_stu_castcat'] ?? $category;
+        $stu_abc_id = $row['abc_id'] ?? null;
+    }
+
+    // 🔹 Get next roll number for that class
+    $getNext = $conn->prepare("SELECT COALESCE(MAX(roll_no), 0) + 1 AS next_roll FROM roll_call WHERE student_class = ?");
+    $getNext->bind_param("s", $cls);
+    $getNext->execute();
+    $nextRoll = $getNext->get_result()->fetch_assoc()['next_roll'];
+
+    // 🔹 Reformat name as "Surname First Middle"
+    $fullName = trim($name);
+    $nameParts = preg_split('/\s+/', $fullName);
+    $formattedName = $fullName; // fallback if parsing fails
+
+    if (count($nameParts) >= 3) {
+        $first = $nameParts[0];
+        $middle = $nameParts[1];
+        $surname = $nameParts[count($nameParts) - 1];
+        $formattedName = "$surname $first $middle";
+    } elseif (count($nameParts) == 2) {
+        $formattedName = "{$nameParts[1]} {$nameParts[0]}";
+    }
+
+    // Check if roll_call for this class is frozen
+$cls = $_POST['r_stu_str'] ?? '';
+$checkFreeze = $conn->prepare("SELECT is_frozen FROM roll_call_status WHERE student_class = ? LIMIT 1");
+$checkFreeze->bind_param("s", $cls);
+$checkFreeze->execute();
+$freezeResult = $checkFreeze->get_result()->fetch_assoc();
+
+if (!empty($freezeResult) && intval($freezeResult['is_frozen']) === 1) {
+    echo "<script>
+        alert('❌ Admission for this class ($cls) is currently frozen. You cannot make receipts.');
+        window.location.href = 'rct.php';
+    </script>";
+    exit;
+} else {
+    // 🔹 Insert into roll_call
+    $insertRoll = $conn->prepare("
+    INSERT INTO roll_call 
+        (roll_no, abc_id, prn, student_name, student_class, student_mob_no, student_category, student_email, created_at)
+    VALUES (0, ?, ?, ?, ?, ?, ?, ?, NOW())
+");
+$insertRoll->bind_param(
+    "issssss",
+    $stu_id,
+    $prn,
+    $formattedName,
+    $cls,
+    $stu_mob_no,
+    $stu_cat,
+    $stu_email
+);
+
+    $insertRoll->execute();
+    }
+}
     // ✅ Update student_subjects (tot_fee, pen_fee)
     // Example: update student's subject fees
     $stmt = $conn->prepare("UPDATE student_subjects 
@@ -63,9 +148,11 @@ if (floatval($_POST['receipt_amt']) <= 0) {
     $stmt->bind_param("ds", $pending, $prn);
     $stmt->execute();
 
-    echo "<script>alert('✅ Receipt saved and fees updated successfully!')
-                  Location('rct.php');      
-          ;</script>";
+    echo "<script>
+        alert('✅ Receipt saved and fees updated successfully!');
+        window.location.href = 'rct.php';
+    </script>";
+
 }
 ?>
 <!DOCTYPE html>
