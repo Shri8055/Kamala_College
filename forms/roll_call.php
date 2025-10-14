@@ -9,7 +9,7 @@ include '../includes/db.php';
 <meta charset="UTF-8">
 <title>Kamala College | Roll Call Management</title>
 <style>
-  body { font-family: Inter, sans-serif; margin: 20px; }
+  body { font-family: Inter, sans-serif;}
   select, button { padding: 6px; font-size: 14px; }
   table { width: 100%; border-collapse: collapse; margin-top: 15px; }
   th, td { border: 1px solid #999; padding: 6px; text-align: center; }
@@ -31,6 +31,7 @@ include '../includes/db.php';
 </style>
 </head>
 <body>
+    <div style="padding: 20px;">
 <h2 style="Display: flex; justify-content: center; margin-top: 10px;">🎓 Roll Call Management</h2>
 
 <form method="GET">
@@ -229,5 +230,6 @@ if (isset($_POST['unfreeze']) && !empty($_POST['class'])) {
 }
 
 ?>
+</div>
 </body>
 </html>

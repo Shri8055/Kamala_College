@@ -3,6 +3,15 @@ include_once('../includes/header.php');
 include '../includes/db.php';
 
 $updateMode = false;
+// Handle Status Toggle
+if (isset($_POST['toggle_id']) && isset($_POST['toggle_status'])) {
+    $id = intval($_POST['toggle_id']);
+    $newStatus = $_POST['toggle_status'] === 'inactive' ? 'inactive' : 'active';
+    $conn->query("UPDATE classes SET status='$newStatus' WHERE cls_id=$id");
+    echo "<script>alert('Class status updated successfully!'); window.location.href='addclass.php';</script>";
+    exit;
+}
+
 $editRow = null;
 $editTerms = [];
 
@@ -61,6 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $totintcap      = $_POST['tot_cap_cls'];
     $pattern        = strtolower($_POST['d_cls_patrn']);
     $fpattern       = strtolower($_POST['d_cls_fpatrn']);
+    $edupattern     = strtoupper($_POST['edu_patt']);
+    $acad_year      = strtoupper($_POST['acad_yr']);
+    $status = isset($_POST['status']) ? $_POST['status'] : 'active';
     $duration_years = (int) $_POST['d_duration'];
 
     $total_terms = ($pattern === 'semester') ? ($duration_years * 2) : $duration_years;
@@ -72,12 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sql = "UPDATE classes SET 
                     stream=?, cls_code=?, cls_shr_nm=?, cls_ful_nm=?,
                     tot_div=?, tot_cap_cls=?,
-                    duration_years=?, total_terms=?, pattern=?, fpattern=?
+                    duration_years=?, total_terms=?, pattern=?, fpattern=?, edu_patt=?, status=?
                 WHERE cls_id=?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssssiiiissi", $stream, $cls_code, $cls_shr_nm, $cls_ful_nm,
-                          $totdiv, $totintcap, $duration_years, $total_terms,
-                          $pattern, $fpattern, $id);
+        $stmt->bind_param("ssssiiiissssi", $stream, $cls_code, $cls_shr_nm, $cls_ful_nm,
+                        $totdiv, $totintcap, $duration_years, $total_terms,
+                        $pattern, $fpattern, $edupattern, $status, $id);
+
         $stmt->execute();
         $stmt->close();
 
@@ -104,13 +117,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         echo "<script>alert('Class & terms updated successfully!'); window.location.href='addclass.php';</script>";
     } else {
-        $sql = "INSERT INTO classes (stream, cls_code, cls_shr_nm, cls_ful_nm,
-                    tot_div, tot_cap_cls, duration_years, total_terms, pattern, fpattern)
-                VALUES (?,?,?,?,?,?,?,?,?,?)";
-        $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssssiiiiss", $stream, $cls_code, $cls_shr_nm, $cls_ful_nm,
-                          $totdiv, $totintcap, $duration_years, $total_terms,
-                          $pattern, $fpattern);
+        $sql = "INSERT INTO classes (acad_yr, stream, cls_code, cls_shr_nm, cls_ful_nm,
+            tot_div, tot_cap_cls, duration_years, total_terms, pattern, fpattern, edu_patt, status)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param("sssssiiiissss", $acad_year, $stream, $cls_code, $cls_shr_nm, $cls_ful_nm,
+                            $totdiv, $totintcap, $duration_years, $total_terms,
+                            $pattern, $fpattern, $edupattern, $status);
+
         $stmt->execute();
         $newId = $stmt->insert_id;
         $stmt->close();
@@ -146,6 +160,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <link rel="stylesheet" href="../assets/css/addclass.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+<style>
+    #edu_patt[disabled] {
+  background: #f9f9f9ff;
+  color: #2e2e2eff;
+  cursor: not-allowed;
+}
+input[readonly] {
+  background-color: #f5f5f5;
+  color: #333;
+  font-weight: 500;
+  cursor: not-allowed;
+}
+</style>
 <body>
 
 <form action="addclass.php" method="POST" id="classForm">
@@ -154,6 +181,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <input type="hidden" name="update_id" value="<?php echo $updateMode ? $editRow['cls_id'] : ''; ?>">
 
     <table>
+        <tr>
+            <?php
+                // Fetch all patterns
+                $patterns = $conn->query("SELECT * FROM edu_pattm ORDER BY edu_id DESC");
+
+                // Get latest pattern (for new class default)
+                $latest = $conn->query("SELECT edu_fl_nm FROM edu_pattm ORDER BY edu_id DESC LIMIT 1")->fetch_assoc()['edu_fl_nm'];
+
+                // Determine currently selected pattern
+                $selectedPattern = $updateMode 
+                    ? ($editRow['edu_patt'] ?? '')   // For Edit Mode → use saved value
+                    : $latest;                       // For New Class → use latest pattern
+            ?>
+            <td><label>Education Pattern:</label></td>
+            <td>
+                <select name="edu_patt" id="edu_patt" <?= $updateMode ? 'disabled' : ''; ?> required>
+                    <?php
+                    if ($patterns && $patterns->num_rows > 0) {
+                        while ($p = $patterns->fetch_assoc()) {
+                            // Compare case-insensitively to avoid mismatch
+                            $isSelected = (strcasecmp($p['edu_fl_nm'], $selectedPattern) === 0) ? 'selected' : '';
+                            echo "<option value='" . htmlspecialchars($p['edu_fl_nm'], ENT_QUOTES) . "' $isSelected>"
+                                . htmlspecialchars($p['edu_fl_nm']) .
+                                "</option>";
+                        }
+                    } else {
+                        echo "<option value='' disabled>No patterns found</option>";
+                    }
+                    ?>
+                </select>
+
+                <?php if ($updateMode): ?>
+                    <!-- Hidden field ensures the value is still submitted even though dropdown is disabled -->
+                    <input type="hidden" name="edu_patt" value="<?= htmlspecialchars($editRow['edu_patt'], ENT_QUOTES); ?>">
+                <?php endif; ?>
+            </td>
+            <td></td>
+            <td></td>
+            <td><label style="margin-left: 15%;">Academic Year:</label></td>
+                <?php
+                    // --- Determine Current Academic Year ---
+                    $current_year = (int)date('Y');
+                    $current_month = (int)date('m');
+
+                    // Academic year logic (e.g. 2025-2026 starts from June 2025)
+                    if ($current_month >= 6) {
+                        $default_acad_yr = $current_year . '-' . ($current_year + 1);
+                    } else {
+                        $default_acad_yr = ($current_year - 1) . '-' . $current_year;
+                    }
+
+                    // --- Use stored value if in update mode ---
+                    $acad_year_value = $updateMode 
+                        ? htmlspecialchars($editRow['acad_yr'] ?? $default_acad_yr, ENT_QUOTES)
+                        : $default_acad_yr;
+                ?>
+            <td>
+                <input 
+                    style="width: 50%;" 
+                    type="text" 
+                    name="acad_yr" 
+                    value="<?= $acad_year_value ?>" 
+                    readonly
+                >
+            </td>
+        </tr>
+
         <tr>
             <td><label for="d_strm">Stream :</label></td>
             <td colspan="2">
@@ -198,7 +292,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <option value="yearly" <?php echo ($updateMode && strtolower($editRow['fpattern']) == 'yearly') ? 'selected' : ''; ?>>Yearly</option>
                 </select>
             </td>
-
             <td><label for="d_duration" style="margin-left: 30%;">Duration (Years) :</label></td>
             <td><input type="number" name="d_duration" id="d_duration" value="<?php echo $updateMode ? (int)$editRow['duration_years'] : ''; ?>" placeholder="No. of Years" required></td>
         </tr>
@@ -240,7 +333,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <h3 style="text-align:center;">Existing Classes</h3>
 <?php
-$result = $conn->query("SELECT cls_id, stream, cls_code, cls_shr_nm, cls_ful_nm, tot_div, tot_cap_cls, pattern, fpattern, duration_years, total_terms FROM classes ORDER BY cls_id DESC");
+$result = $conn->query("SELECT cls_id, stream, cls_code, cls_shr_nm, cls_ful_nm, tot_div, tot_cap_cls, pattern, fpattern, duration_years, total_terms, edu_patt, status FROM classes ORDER BY cls_id DESC");
 if ($result && $result->num_rows > 0) {
     echo "<table class='display-table'>";
     echo "<tr>
@@ -253,6 +346,7 @@ if ($result && $result->num_rows > 0) {
             <th>Intake</th>
             <th style='border-right: 1px solid #cccccc;'>Course<br>Pattern</th>
             <th style='border-right: 1px solid #cccccc;'>Fee<br>Pattern</th>
+            <th style='border-right: 1px solid #cccccc;'>Education Pattern</th>
             <th style='width: 5%; border-right: 1px solid #cccccc;'>Duration (Years)</th>
             <th style='width: 5%; border-right: 1px solid #cccccc;'>Total Terms</th>
             <th>Actions</th>
@@ -268,13 +362,19 @@ if ($result && $result->num_rows > 0) {
         echo "<td>" . htmlspecialchars($row['tot_cap_cls'], ENT_QUOTES) . "</td>";
         echo "<td style='border-right: 1px solid #cccccc;'>" . htmlspecialchars($row['pattern'], ENT_QUOTES) . "</td>";
         echo "<td style='border-right: 1px solid #cccccc;'>" . htmlspecialchars($row['fpattern'], ENT_QUOTES) . "</td>";
+        echo "<td style='border-right: 1px solid #cccccc;'>" . htmlspecialchars($row['edu_patt'], ENT_QUOTES) . "</td>";
         echo "<td style='border-right: 1px solid #cccccc;'>" . (int)$row['duration_years'] . "</td>";
         echo "<td style='border-right: 1px solid #cccccc;'>" . (int)$row['total_terms'] . "</td>";
         echo "<td>
-                <a href='addclass.php?delete={$row['cls_id']}' onclick='return confirm(\"Are you sure you want to delete this class?\");'>
-                    <i class='fa-solid fa-circle-xmark delete-icon'></i>
-                </a>
-              </td>";
+                    <form method='POST' action='' style='padding: 0px; margin: 0px;'>
+                        <input type='hidden' name='toggle_id' value='{$row['cls_id']}'>
+                        <select name='toggle_status' onchange='this.form.submit()'>
+                            <option value='active' " . ($row['status'] === 'active' ? 'selected' : '') . ">Active</option>
+                            <option value='inactive' " . ($row['status'] === 'inactive' ? 'selected' : '') . ">Inactive</option>
+                        </select>
+                    </form>
+                </td>
+                ";
         echo "</tr>";
     }
     echo "</table>";

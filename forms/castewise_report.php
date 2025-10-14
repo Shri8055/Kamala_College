@@ -9,7 +9,7 @@ include '../includes/db.php';
 <meta charset="UTF-8">
 <title>Kamala College | Caste-wise Report</title>
 <style>
-  body { font-family: Inter, sans-serif; margin: 20px; }
+  body { font-family: Inter, sans-serif;}
   select, button { padding: 6px; font-size: 14px; }
   table { width: 60%; border-collapse: collapse; margin-top: 15px; }
   th, td { border: 1px solid #999; padding: 6px; text-align: center; }
@@ -18,7 +18,8 @@ include '../includes/db.php';
 </style>
 </head>
 <body>
-<h2>📊 Caste-wise Student Report</h2>
+  <div style="padding: 20px;">
+<h2 style="Display: flex; justify-content: center; margin-top: 10px;">📊 Caste-wise Student Report</h2>
 
 <form method="GET">
   <label for="class">Select Class:</label>
@@ -40,7 +41,7 @@ include '../includes/db.php';
 if (!empty($_GET['class'])) {
     $cls = $_GET['class'];
 
-    echo "<h3>Class: <u>$cls</u></h3>";
+    echo "<h3 style='Display: flex; justify-content: center; margin-top: 10px;'><span style='padding-right: 10px;'>Class: </span>  <u> $cls</u></h3>";
 
     $query = $conn->prepare("
         SELECT student_category, COUNT(*) AS total_students
@@ -80,14 +81,14 @@ if (!empty($_GET['class'])) {
         // Print & Export buttons
         echo "<div style='margin-top:15px;'>
                 <button onclick=\"window.open('print_castewise.php?class=" . urlencode($cls) . "', '_blank');\" 
-                        style='background:#007bff;color:#fff;padding:8px 16px;border:none;cursor:pointer;'>🖨️ Print PDF</button>
+                        style='background:#007bff;color:#fff;padding:8px 16px;border:none;cursor:pointer;border-radius: 10px; border: 1px solid #5e5e5e94;'>🖨️ Print PDF</button>
                 <button onclick=\"window.open('export_castewise.php?class=" . urlencode($cls) . "', '_blank');\" 
-                        style='background:#28a745;color:#fff;padding:8px 16px;border:none;cursor:pointer;margin-left:10px;'>📤 Export Excel</button>
+                        style='background:#28a745;color:#fff;padding:8px 16px;border:none;cursor:pointer;margin-left:10px;border-radius: 10px; border: 1px solid #5e5e5e94;'>📤 Export Excel</button>
               </div>";
     } else {
         echo "<p><b>No students found for this class.</b></p>";
     }
 }
-?>
+?></div>
 </body>
 </html>

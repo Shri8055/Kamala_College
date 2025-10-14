@@ -67,9 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['edit'])) {
     // ------------------------------
     // UPDATE student_registration
     // ------------------------------
-        // ------------------------------
-    // UPDATE student_registration
-    // ------------------------------
     $updateSql = "UPDATE student_registration SET
         r_stu_admi_cls=?, r_stu_tit=?, r_stu_mother=?, r_stu_gen=?, 
         r_stu_name=?, r_stu_father=?, r_stu_sur=?,

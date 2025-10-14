@@ -85,7 +85,7 @@
         <a href="dcr.php">Daily Collection Report</a>
         <a href="roll_call.php">Roll Calls</a>
         <a href="fee_dues.php">Fee Dues</a>
-        <a href="#">Castewise Report</a>
+        <a href="castewise_report.php">Castewise Report</a>
         <a href="#">Subjectwise Report</a>
         <a href="#">Coursewise Fee Collection</a>
         <a href="#">Monthly Reports</a>

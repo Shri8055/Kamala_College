@@ -138,6 +138,8 @@ ob_end_flush();
 
 <body>
     <form method="POST" action="save_subjects.php<?= $edit_mode ? '?edit_sem=' . $edit_sem : '' ?>">
+        <h3 style="text-align: center; padding-bottom: 10px;">Add Subjects</h3>
+        <hr style="width: 80%; margin: auto; border-radius: 50%;">
         <input type="hidden" name="current_sem" value="<?= $edit_sem ?: $current_sem ?>">
         <label style="font-weight: bold;">Select Class:</label>
         <select name="d_cls" id="class-select" required>
